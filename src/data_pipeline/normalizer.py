@@ -53,6 +53,12 @@ def normalize_sft_file(input_file: Path, output_file: Path, audit_log: Path) -> 
 
             if not record["instruction"] or not record["response"]:
                 continue
+            # Filtrer les réponses trop courtes (ex: QCM lettre seule)
+            if len(record["response"].split()) < 5:
+                continue
+            # Filtrer les instructions trop longues (textes cliniques >2000 mots)
+            if len(record["instruction"].split()) > 2000:
+                continue
 
             fout.write(json.dumps(record, ensure_ascii=False) + "\n")
             log_entries.append(_log_entry(transformation_id, str(input_file), str(output_file), record_id))

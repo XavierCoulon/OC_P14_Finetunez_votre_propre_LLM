@@ -1,0 +1,29 @@
+{
+  "dataset_name": "chsa-medical-triage",
+  "description": "Corpus médical bilingue FR/EN pour fine-tuning SFT+DPO — POC CHSA",
+  "created": "2026-05-01",
+  "anonymization": "Presidio (replace strategy)",
+  "rgpd_compliant": true,
+  "sft": {
+    "train": 3876,
+    "val": 484,
+    "test": 488
+  },
+  "dpo": {
+    "train": 1600,
+    "val": 200,
+    "test": 200
+  },
+  "eval_clinique": 100,
+  "sources": [
+    "mediqa",
+    "frenchmedmcqa",
+    "medquad",
+    "ultramedical",
+    "ultramedical_preference"
+  ],
+  "languages": [
+    "en",
+    "fr"
+  ]
+}
