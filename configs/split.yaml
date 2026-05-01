@@ -1,0 +1,17 @@
+seed: 42
+
+sft:
+  total_target: 5000
+  train: 0.80
+  val: 0.10
+  test: 0.10
+
+dpo:
+  train: 0.80
+  val: 0.10
+  test: 0.10
+
+eval_clinique:
+  size: 100
+  stratification_key: task_type
+  source_constraint: no_overlap_with_sft_sources

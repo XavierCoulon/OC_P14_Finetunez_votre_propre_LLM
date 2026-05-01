@@ -1,0 +1,26 @@
+sources:
+  mediqa:
+    hf_dataset: "bigbio/mediqa_qa"
+    language: en
+    target_pairs: 1000
+    split: train
+
+  frenchmedmcqa:
+    hf_dataset: "frenchmedmcqa/frenchmedmcqa"
+    language: fr
+    target_pairs: 1500
+    split: train
+
+  medquad:
+    hf_dataset: "lavita/MedQuAD"
+    language: en
+    target_pairs: 2000
+    split: train
+
+  ultramedical:
+    hf_dataset: "TsinghuaC3I/UltraMedical"
+    language: en
+    target_pairs_sft: 500
+    target_pairs_dpo: 2000
+    dpo_score_gap_min: 0.3
+    split: train

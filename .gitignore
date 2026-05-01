@@ -1,0 +1,20 @@
+# Données brutes — ne jamais committer
+data/raw/
+data/interim/
+
+# Environnement Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Secrets et config locaux
+.env
+*.local
+
+# OS
+.DS_Store

@@ -1,0 +1,32 @@
+analyzer:
+  language_models:
+    fr: fr_core_news_md
+    en: en_core_web_lg
+  entities_to_detect:
+    - PERSON
+    - LOCATION
+    - DATE_TIME
+    - PHONE_NUMBER
+    - EMAIL_ADDRESS
+    - MEDICAL_LICENSE
+    - NRP
+  score_threshold: 0.70
+  allow_list: []
+
+anonymizer:
+  strategies:
+    replace:
+      operator: replace
+      params:
+        new_value: "<{entity_type}>"
+    mask:
+      operator: mask
+      params:
+        masking_char: "*"
+        chars_to_mask: 4
+        from_end: false
+    redact:
+      operator: redact
+
+  default_strategy: replace
+  direct_identifiers_strategy: redact
