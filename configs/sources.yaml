@@ -14,7 +14,7 @@ sources:
   medquad:
     hf_dataset: "lavita/MedQuAD"
     language: en
-    target_pairs: 2000
+    target_pairs: 3500
     split: train
 
   ultramedical:
