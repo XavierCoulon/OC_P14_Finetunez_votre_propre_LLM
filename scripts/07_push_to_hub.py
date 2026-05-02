@@ -23,7 +23,15 @@ EVAL_DIR = Path("data/processed/eval_clinique")
 
 
 def load_jsonl(path: Path) -> list[dict]:
-    return [json.loads(line) for line in open(path, encoding="utf-8")]
+    return [flatten(json.loads(line)) for line in open(path, encoding="utf-8")]
+
+
+def flatten(record: dict) -> dict:
+    """Sérialise les champs imbriqués en JSON string (Parquet n'accepte pas les structs vides)."""
+    for key in ("metadata", "chosen", "rejected"):
+        if key in record and isinstance(record[key], dict):
+            record[key] = json.dumps(record[key], ensure_ascii=False)
+    return record
 
 
 def main():
