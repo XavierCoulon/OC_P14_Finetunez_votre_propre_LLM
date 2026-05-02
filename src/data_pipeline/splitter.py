@@ -1,11 +1,32 @@
 """
 Split train/val/test des datasets anonymisés.
 Stratifié sur source + language. eval_clinique prélevé en premier.
+Déduplication MinHash (Jaccard ≥ 0.9) avant le split.
 """
 import json
 import random
 from pathlib import Path
 from collections import defaultdict
+
+from datasketch import MinHash, MinHashLSH
+
+
+def _minhash(text: str, num_perm: int = 128) -> MinHash:
+    m = MinHash(num_perm=num_perm)
+    for w in text.lower().split():
+        m.update(w.encode("utf-8"))
+    return m
+
+
+def _deduplicate(records: list[dict], threshold: float = 0.9, num_perm: int = 128) -> list[dict]:
+    lsh = MinHashLSH(threshold=threshold, num_perm=num_perm)
+    kept = []
+    for r in records:
+        m = _minhash(r["instruction"], num_perm)
+        if not lsh.query(m):
+            lsh.insert(r["id"], m)
+            kept.append(r)
+    return kept
 
 
 def split_sft(anon_dir: Path, output_dir: Path, eval_dir: Path,
@@ -25,6 +46,11 @@ def split_sft(anon_dir: Path, output_dir: Path, eval_dir: Path,
                 all_records.append(json.loads(line))
 
     random.shuffle(all_records)
+
+    # Déduplication MinHash avant split
+    before = len(all_records)
+    all_records = _deduplicate(all_records)
+    print(f"  Déduplication SFT : {before} → {len(all_records)} ({before - len(all_records)} supprimés)")
 
     # Extraire eval_clinique en premier (100 premiers après shuffle)
     eval_records = all_records[:eval_size]
