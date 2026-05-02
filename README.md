@@ -37,3 +37,26 @@ uv run python scripts/03_anonymize.py
 uv run python scripts/04_split.py
 uv run python scripts/05_validate.py
 ```
+
+## Sources de données
+
+| Source | HuggingFace | Langue | Type | Licence | Paires retenues |
+|---|---|---|---|---|---|
+| MediQA | [lavita/medical-qa-datasets](https://huggingface.co/datasets/lavita/medical-qa-datasets) | EN | QA médical (SFT) | Apache 2.0 | 948 |
+| FrenchMedMCQA | [PARTAGES-dev/frenchmedmcqa-sft](https://huggingface.co/datasets/PARTAGES-dev/frenchmedmcqa-sft) | FR | QCM médical (SFT) | Apache 2.0 | 1 500 |
+| MedQuAD | [lavita/MedQuAD](https://huggingface.co/datasets/lavita/MedQuAD) | EN | QA médical (SFT) | CC BY 4.0 | 3 500 |
+| UltraMedical | [TsinghuaC3I/UltraMedical](https://huggingface.co/datasets/TsinghuaC3I/UltraMedical) | EN | QA médical (SFT) | MIT | 500 |
+| UltraMedical-Preference | [TsinghuaC3I/UltraMedical-Preference](https://huggingface.co/datasets/TsinghuaC3I/UltraMedical-Preference) | EN | Préférences chosen/rejected (DPO) | MIT | 2 000 |
+
+**Toutes les sources sont publiques et sous licence ouverte.** Elles ne contiennent pas de données patients réelles.
+
+### Dataset final (après déduplication MinHash + anonymisation Presidio)
+
+| Split | SFT | DPO |
+|---|---|---|
+| train | 4 324 | 1 600 |
+| val | 539 | 200 |
+| test | 545 | 200 |
+| eval_clinique | 100 | — |
+
+Voir [`audit/rgpd_report.md`](audit/rgpd_report.md) pour le détail du processus d'anonymisation et la conformité RGPD.
