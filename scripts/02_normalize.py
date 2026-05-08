@@ -4,6 +4,7 @@ Entrée  : data/raw/
 Sortie  : data/interim/normalized/
 """
 import sys
+import yaml
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -13,9 +14,18 @@ from src.data_pipeline.normalizer import normalize_sft_file, normalize_dpo_file
 RAW_DIR = Path("data/raw")
 NORM_DIR = Path("data/interim/normalized")
 AUDIT_LOG = Path("audit/transformation_log.jsonl")
+CONFIG_PATH = Path("configs/sources.yaml")
 
+with open(CONFIG_PATH) as f:
+    _sources = yaml.safe_load(f)["sources"]
+
+# MediQA exclu si enabled: false dans configs/sources.yaml
 SFT_FILES = [
-    RAW_DIR / "mediqa" / "mediqa_raw.jsonl",
+    *(
+        [RAW_DIR / "mediqa" / "mediqa_raw.jsonl"]
+        if _sources["mediqa"].get("enabled", True)
+        else []
+    ),
     RAW_DIR / "frenchmedmcqa" / "frenchmedmcqa_raw.jsonl",
     RAW_DIR / "medquad" / "medquad_raw.jsonl",
     RAW_DIR / "ultramedical_preference" / "ultramedical_sft_raw.jsonl",

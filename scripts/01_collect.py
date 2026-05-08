@@ -26,13 +26,18 @@ def main():
     sources = config["sources"]
     total = 0
 
-    print("=== Collecte MediQA ===")
-    n = mediqa_collector.collect(
-        target_pairs=sources["mediqa"]["target_pairs"],
-        output_dir=RAW_DIR / "mediqa",
-    )
-    print(f"  → {n} paires collectées")
-    total += n
+    # MediQA désactivé : OUTPUT = extrait tronqué de l'INPUT, qualité insuffisante.
+    # Réactiver en passant enabled: true dans configs/sources.yaml.
+    if sources["mediqa"].get("enabled", True):
+        print("=== Collecte MediQA ===")
+        n = mediqa_collector.collect(
+            target_pairs=sources["mediqa"]["target_pairs"],
+            output_dir=RAW_DIR / "mediqa",
+        )
+        print(f"  → {n} paires collectées")
+        total += n
+    else:
+        print("=== Collecte MediQA === [DÉSACTIVÉ — voir configs/sources.yaml]")
 
     print("=== Collecte FrenchMedMCQA ===")
     n = frenchmedmcqa_collector.collect(

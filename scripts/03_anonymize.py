@@ -4,6 +4,7 @@ Entrée  : data/interim/normalized/
 Sortie  : data/interim/anonymized/
 """
 import sys
+import yaml
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -14,9 +15,18 @@ NORM_DIR = Path("data/interim/normalized")
 ANON_DIR = Path("data/interim/anonymized")
 AUDIT_LOG = Path("audit/transformation_log.jsonl")
 
+with open("configs/sources.yaml") as f:
+    _sources = yaml.safe_load(f)["sources"]
+
+_disabled = {k for k, v in _sources.items() if not v.get("enabled", True)}
+
 
 def main():
-    sft_files = [f for f in NORM_DIR.glob("*_normalized.jsonl") if "dpo" not in f.name]
+    sft_files = [
+        f for f in NORM_DIR.glob("*_normalized.jsonl")
+        if "dpo" not in f.name
+        and not any(d in f.name for d in _disabled)
+    ]
     dpo_files = [f for f in NORM_DIR.glob("*dpo*_normalized.jsonl")]
 
     total_records, total_entities = 0, 0

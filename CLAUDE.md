@@ -24,10 +24,18 @@ https://github.com/XavierCoulon/OC_P14_Finetunez_votre_propre_LLM
 - Déploiement : vLLM + GitHub Actions CI/CD
 
 ## Feuille de route
-- Semaine 1 : Collecte et structuration des données (étape 1 en cours)
-- Semaine 2 : SFT + LoRA
-- Semaine 3 : DPO
-- Semaine 4 : Déploiement vLLM + évaluation + rapport
+- Étape 1 : Collecte et structuration des données ✅
+- Étape 2 : SFT + LoRA (en cours)
+- Étape 3 : DPO
+- Étape 4 : Déploiement vLLM + évaluation
+
+## Livrables finaux
+- Rapport technique ≤ 20 pages
+- Support de présentation (slides) pour la soutenance
+- Issues de référence : #7 (étape 1), #8 (étape 2)
+
+## Décisions techniques documentées
+- **MediQA abandonné** : output = extrait tronqué de l'input (fiches Mayo Clinic), pas de vraie paire Q/R. Code conservé, désactivé via `enabled: false` dans `configs/sources.yaml`. MedQuAD remplace avantageusement.
 
 ## Règles importantes
 - data/raw/ et data/interim/ sont hors git (.gitignore)
