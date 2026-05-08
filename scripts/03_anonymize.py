@@ -19,6 +19,7 @@ with open("configs/sources.yaml") as f:
     _sources = yaml.safe_load(f)["sources"]
 
 _disabled = {k for k, v in _sources.items() if not v.get("enabled", True)}
+_skip_anonymization = {k for k, v in _sources.items() if v.get("skip_anonymization", False)}
 
 
 def main():
@@ -32,9 +33,11 @@ def main():
     total_records, total_entities = 0, 0
 
     print("=== Anonymisation SFT ===")
+    if _skip_anonymization:
+        print(f"  Sources sans anonymisation (pas de PII patient) : {', '.join(_skip_anonymization)}")
     for f in sft_files:
         out = ANON_DIR / f.name.replace("_normalized", "_anonymized")
-        n, e = anonymize_file(f, out, AUDIT_LOG, dataset_type="sft")
+        n, e = anonymize_file(f, out, AUDIT_LOG, dataset_type="sft", skip_sources=_skip_anonymization)
         print(f"  {f.name} → {n} enregistrements, {e} entités masquées")
         total_records += n
         total_entities += e
@@ -42,7 +45,7 @@ def main():
     print("=== Anonymisation DPO ===")
     for f in dpo_files:
         out = ANON_DIR / f.name.replace("_normalized", "_anonymized")
-        n, e = anonymize_file(f, out, AUDIT_LOG, dataset_type="dpo")
+        n, e = anonymize_file(f, out, AUDIT_LOG, dataset_type="dpo", skip_sources=_skip_anonymization)
         print(f"  {f.name} → {n} enregistrements, {e} entités masquées")
         total_records += n
         total_entities += e

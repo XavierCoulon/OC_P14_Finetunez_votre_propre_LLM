@@ -5,9 +5,9 @@
   "anonymization": "Presidio (replace strategy)",
   "rgpd_compliant": true,
   "sft": {
-    "train": 3932,
-    "val": 491,
-    "test": 493
+    "train": 3947,
+    "val": 492,
+    "test": 496
   },
   "dpo": {
     "train": 1600,

@@ -12,6 +12,7 @@ sources:
     language: fr
     target_pairs: 1500
     split: train
+    skip_anonymization: true  # QCM d'examen — aucun PII patient. Le modèle FR taggue à tort les termes médicaux capitalisés (Élévation, Leucémie, Pseudomonas...) comme PERSON.
 
   medquad:
     hf_dataset: "lavita/MedQuAD"

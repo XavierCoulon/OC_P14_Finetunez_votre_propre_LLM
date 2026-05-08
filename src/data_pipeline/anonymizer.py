@@ -1,8 +1,14 @@
 """
 Anonymisation des données avec Microsoft Presidio.
 Stratégie : replace → <PERSON>, <DATE_TIME>, etc.
+
+Améliorations vs v1 :
+- Filtre longueur minimale : entités < 3 chars ignorées (évite A/B/C/D/E des QCM)
+- Allowlist médicale : termes médicaux latins/grecs fréquemment mal taguées
+- Seuil NRP relevé à 0.85 : réduit les faux positifs sur organisations médicales
 """
 import json
+import re
 from pathlib import Path
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -15,6 +21,27 @@ from presidio_anonymizer.entities import OperatorConfig
 
 ENTITIES = ["PERSON", "LOCATION", "DATE_TIME", "PHONE_NUMBER", "EMAIL_ADDRESS", "NRP"]
 SCORE_THRESHOLD = 0.70
+NRP_SCORE_THRESHOLD = 0.85   # plus strict pour éviter les orgas médicales
+MIN_ENTITY_LENGTH = 3        # ignore les entités < 3 chars (lettres QCM A/B/C...)
+
+# Termes médicaux fréquemment mal taguées comme PERSON/LOCATION
+MEDICAL_ALLOWLIST = {
+    # Termes latins / grecs
+    "primigravidas", "multigravidas", "primigravida", "multigravida",
+    "cholesteatoma", "hypotympanum", "epitympanum", "tympanum",
+    "ataxia", "dysarthria", "dysphagia", "dysnomia", "dyscalculia",
+    "myopathy", "neuropathy", "nephropathy", "cardiomyopathy",
+    "lymphedema", "papillomas", "lymphoma", "amyloidosis",
+    "myeloma", "sarcoma", "melanoma", "adenoma", "carcinoma",
+    "fibroma", "fibrothecoma",
+    # Syndromes nommés (noms propres médicaux)
+    "sjogren", "guillain", "barre", "charcot", "marie", "tooth",
+    "alzheimer", "parkinson", "huntington", "wilson", "fabry",
+    "marfan", "turner", "down", "klinefelter", "bartter", "milroy",
+    # Organisations médicales
+    "acog", "who", "nih", "cdc", "fda", "ema",
+    "gynecologists", "obstetricians", "pediatricians",
+}
 
 # Champs de texte à anonymiser par type de dataset
 SFT_TEXT_FIELDS = ["instruction", "response"]
@@ -32,12 +59,44 @@ def _build_engines(language: str):
     return analyzer, anonymizer
 
 
+def _filter_results(results: list, text: str) -> list:
+    """
+    Filtre les faux positifs :
+    - Entités trop courtes (< MIN_ENTITY_LENGTH chars)
+    - Termes dans la MEDICAL_ALLOWLIST
+    - NRP sous le seuil strict
+    """
+    filtered = []
+    for r in results:
+        entity_text = text[r.start:r.end].strip().lower()
+
+        # Filtre 1 : longueur minimale
+        if len(entity_text) < MIN_ENTITY_LENGTH:
+            continue
+
+        # Filtre 2 : allowlist médicale
+        if entity_text in MEDICAL_ALLOWLIST:
+            continue
+
+        # Filtre 3 : NRP avec seuil plus strict
+        if r.entity_type == "NRP" and r.score < NRP_SCORE_THRESHOLD:
+            continue
+
+        filtered.append(r)
+    return filtered
+
+
 def _anonymize_text(text: str, analyzer: AnalyzerEngine, anonymizer: AnonymizerEngine, language: str) -> tuple[str, int]:
     if not text:
         return text, 0
     results = analyzer.analyze(text=text, language=language, entities=ENTITIES, score_threshold=SCORE_THRESHOLD)
     if not results:
         return text, 0
+
+    results = _filter_results(results, text)
+    if not results:
+        return text, 0
+
     operators = {entity: OperatorConfig("replace", {"new_value": f"<{entity}>"}) for entity in ENTITIES}
     anonymized = anonymizer.anonymize(text=text, analyzer_results=results, operators=operators)
     return anonymized.text, len(results)
@@ -47,12 +106,15 @@ def _checksum(text: str) -> str:
     return sha256(text.encode()).hexdigest()[:16]
 
 
-def anonymize_file(input_file: Path, output_file: Path, audit_log: Path, dataset_type: str = "sft") -> tuple[int, int]:
+def anonymize_file(input_file: Path, output_file: Path, audit_log: Path, dataset_type: str = "sft", skip_sources: set | None = None) -> tuple[int, int]:
+    """
+    skip_sources : sources à laisser intactes (pas de PII patient — ex: QCM d'examen).
+    """
     output_file.parent.mkdir(parents=True, exist_ok=True)
+    if skip_sources is None:
+        skip_sources = set()
 
-    # Pré-charger les deux moteurs
     engines: dict[str, tuple] = {}
-
     total_records = 0
     total_entities = 0
     log_entries = []
@@ -61,6 +123,24 @@ def anonymize_file(input_file: Path, output_file: Path, audit_log: Path, dataset
         for i, line in enumerate(fin):
             record = json.loads(line)
             language = record.get("language", "en")
+            source = record.get("source", "")
+
+            # Source sans PII patient → on écrit le record tel quel
+            if source in skip_sources:
+                anon_id = f"anon_{i:06d}_skipped"
+                record.get("metadata", {}).get("transformation_ids", []).append(anon_id)
+                fout.write(json.dumps(record, ensure_ascii=False) + "\n")
+                total_records += 1
+                log_entries.append({
+                    "transformation_id": anon_id,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "input_record_id": record.get("id", str(i)),
+                    "operation": "anonymization_skipped",
+                    "reason": "source flagged skip_anonymization (no patient PII)",
+                    "source_file": str(input_file),
+                    "output_file": str(output_file),
+                })
+                continue
 
             if language not in engines:
                 engines[language] = _build_engines(language)
@@ -89,7 +169,6 @@ def anonymize_file(input_file: Path, output_file: Path, audit_log: Path, dataset
                             obj[parts[1]] = anonymized
                     entities_count += n
 
-            # Mettre à jour les transformation_ids
             anon_id = f"anon_{i:06d}"
             record.get("metadata", {}).get("transformation_ids", []).append(anon_id)
 
@@ -104,6 +183,7 @@ def anonymize_file(input_file: Path, output_file: Path, audit_log: Path, dataset
                 "operation": "anonymization",
                 "tool": "presidio",
                 "strategy": "replace",
+                "filters": f"min_length={MIN_ENTITY_LENGTH}, allowlist={len(MEDICAL_ALLOWLIST)} terms, nrp_threshold={NRP_SCORE_THRESHOLD}",
                 "entities_modified": entities_count,
                 "source_file": str(input_file),
                 "output_file": str(output_file),
