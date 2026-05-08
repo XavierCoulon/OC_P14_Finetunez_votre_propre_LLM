@@ -19,7 +19,17 @@ with open("configs/sources.yaml") as f:
     _sources = yaml.safe_load(f)["sources"]
 
 _disabled = {k for k, v in _sources.items() if not v.get("enabled", True)}
-_skip_anonymization = {k for k, v in _sources.items() if v.get("skip_anonymization", False)}
+
+# Construit le set des sources à sauter (clé yaml + champ "source" dans les records)
+# "ultramedical" dans sources.yaml → records SFT "ultramedical" et DPO "ultramedical_preference"
+_YAML_TO_RECORD_SOURCE = {
+    "ultramedical": {"ultramedical", "ultramedical_preference"},
+}
+_skip_anonymization: set[str] = set()
+for k, v in _sources.items():
+    if v.get("skip_anonymization", False):
+        _skip_anonymization.add(k)
+        _skip_anonymization.update(_YAML_TO_RECORD_SOURCE.get(k, set()))
 
 
 def main():

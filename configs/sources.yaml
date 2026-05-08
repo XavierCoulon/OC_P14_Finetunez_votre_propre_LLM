@@ -19,6 +19,7 @@ sources:
     language: en
     target_pairs: 3500
     split: train
+    skip_anonymization: true  # Q&A éducatif NIH/GARD — aucun PII patient. Presidio taggait à tort : gènes (KANK2→LOCATION), éponyms médicaux (Knobloch→PERSON), géographie de maladies (Naxos→NRP). 46% des records affectés.
 
   ultramedical:
     hf_dataset: "TsinghuaC3I/UltraMedical"
@@ -27,3 +28,4 @@ sources:
     target_pairs_dpo: 2000
     dpo_score_gap_min: 0.3
     split: train
+    skip_anonymization: true  # Vignettes cliniques synthétiques (MedQA/USMLE) — patients fictifs. Presidio détruisait l'information clinique : "23-year-old" → <DATE_TIME>, "22 weeks gestation" → <DATE_TIME>. 98% des records SFT et 84% DPO affectés.
