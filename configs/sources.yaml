@@ -17,7 +17,7 @@ sources:
     # skip_anonymization non posé → Presidio actif : source contient vraies questions patients (prénoms, symptômes personnels)
 
   frenchmedmcqa:
-    hf_dataset: "frenchmedmcqa/frenchmedmcqa"
+    hf_dataset: "PARTAGES-dev/frenchmedmcqa-sft"
     language: fr
     target_pairs: 1500
     split: train
