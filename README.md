@@ -63,3 +63,42 @@ uv run python scripts/05_validate.py
 | eval_clinique | 100 | — |
 
 Voir [`audit/rgpd_report.md`](audit/rgpd_report.md) pour le détail du processus d'anonymisation et la conformité RGPD.
+
+---
+
+## Schéma des métadonnées
+
+Chaque enregistrement normalisé contient un bloc `metadata` commun :
+
+```json
+{
+  "metadata": {
+    "symptoms": [],
+    "antecedents": [],
+    "constantes": {},
+    "confidence_level": "medium",
+    "original_source_id": "abc123",
+    "transformation_ids": ["norm_chatdoctor_000042"],
+    "split": "train"
+  }
+}
+```
+
+| Champ | Type | Description | État |
+|---|---|---|---|
+| `symptoms` | `list[str]` | Symptômes extraits du texte (ex : `["fièvre", "douleur thoracique"]`) | Vide — extraction NLP hors scope étape 1 |
+| `antecedents` | `list[str]` | Antécédents médicaux du patient (ex : `["diabète", "hypertension"]`) | Vide — idem |
+| `constantes` | `dict` | Signes vitaux structurés (ex : `{"temperature": 38.5, "heart_rate": 97}`) | Vide — idem |
+| `confidence_level` | `str` | Qualité estimée de la paire : `"high"` (DPO avec scores), `"medium"` (SFT public) | Hardcodé par source |
+| `original_source_id` | `str` | Identifiant dans le dataset HuggingFace d'origine | ✅ Renseigné |
+| `transformation_ids` | `list[str]` | Traçabilité RGPD : liste des opérations appliquées (`norm_*`, `anon_*`) | ✅ Renseigné |
+| `split` | `str \| null` | Split d'appartenance (`"train"`, `"val"`, `"test"`) — renseigné par `04_split.py` | ✅ Renseigné après split |
+
+### Pourquoi `symptoms`, `antecedents`, `constantes` sont vides
+
+Ces champs ont été définis pour une extraction NLP ultérieure (NER médical, parsing de vignettes cliniques). Ils seraient pertinents pour :
+- **Stratifier les splits** par type de pathologie ou niveau de complexité
+- **Filtrer** les cas selon les constantes vitales dans un contexte de triage réel
+- **Évaluer** la couverture clinique du corpus
+
+Leur extraction automatique (ex. via un modèle NER médical comme `en_core_med7` ou `fr_core_news_md`) est une amélioration possible à l'étape 2 si la qualité du fine-tuning s'avère insuffisante.
