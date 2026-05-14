@@ -5,7 +5,16 @@ sources:
     language: en
     target_pairs: 1000
     split: train
-    enabled: false  # Désactivé : OUTPUT = extrait tronqué de l'INPUT, pas de vraie paire Q/R. MedQuAD couvre le même domaine avec meilleure qualité.
+    enabled: false  # Désactivé : remplacé par chatdoctor_healthcaremagic (vraies consultations patient-médecin).
+                    # Note : bug collecteur corrigé (instruction→question, pas input), mais qualité inférieure à ChatDoctor.
+
+  chatdoctor:
+    hf_dataset: "lavita/medical-qa-datasets"
+    hf_config: "chatdoctor_healthcaremagic"
+    language: en
+    target_pairs: 1000
+    split: train
+    # skip_anonymization non posé → Presidio actif : source contient vraies questions patients (prénoms, symptômes personnels)
 
   frenchmedmcqa:
     hf_dataset: "frenchmedmcqa/frenchmedmcqa"

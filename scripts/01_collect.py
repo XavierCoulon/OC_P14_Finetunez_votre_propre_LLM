@@ -13,6 +13,7 @@ from src.data_pipeline.collectors import (
     frenchmedmcqa_collector,
     medquad_collector,
     ultramedical_collector,
+    chatdoctor_collector,
 )
 
 CONFIG_PATH = Path("configs/sources.yaml")
@@ -38,6 +39,14 @@ def main():
         total += n
     else:
         print("=== Collecte MediQA === [DÉSACTIVÉ — voir configs/sources.yaml]")
+
+    print("=== Collecte ChatDoctor (HealthcareMagic) ===")
+    n = chatdoctor_collector.collect(
+        target_pairs=sources["chatdoctor"]["target_pairs"],
+        output_dir=RAW_DIR / "chatdoctor",
+    )
+    print(f"  → {n} paires collectées")
+    total += n
 
     print("=== Collecte FrenchMedMCQA ===")
     n = frenchmedmcqa_collector.collect(

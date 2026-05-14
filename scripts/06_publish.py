@@ -26,8 +26,8 @@ def main():
         "sft": {split: count_lines(SFT_DIR / f"{split}.jsonl") for split in ["train", "val", "test"]},
         "dpo": {split: count_lines(DPO_DIR / f"{split}.jsonl") for split in ["train", "val", "test"]},
         "eval_clinique": count_lines(EVAL_DIR / "eval_clinique.jsonl"),
-        "sources": ["frenchmedmcqa", "medquad", "ultramedical", "ultramedical_preference"],
-        "sources_disabled": ["mediqa"],  # désactivé — output = extrait tronqué de l'input
+        "sources": ["frenchmedmcqa", "medquad", "chatdoctor", "ultramedical", "ultramedical_preference"],
+        "sources_disabled": ["mediqa"],  # remplacé par chatdoctor (vraies consultations patient-médecin HealthcareMagic)
         "languages": ["en", "fr"],
     }
 

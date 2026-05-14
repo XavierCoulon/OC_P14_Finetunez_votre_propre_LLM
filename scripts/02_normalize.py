@@ -19,11 +19,16 @@ CONFIG_PATH = Path("configs/sources.yaml")
 with open(CONFIG_PATH) as f:
     _sources = yaml.safe_load(f)["sources"]
 
-# MediQA exclu si enabled: false dans configs/sources.yaml
+# Sources conditionnelles selon le flag enabled dans configs/sources.yaml
 SFT_FILES = [
     *(
         [RAW_DIR / "mediqa" / "mediqa_raw.jsonl"]
         if _sources["mediqa"].get("enabled", True)
+        else []
+    ),
+    *(
+        [RAW_DIR / "chatdoctor" / "chatdoctor_raw.jsonl"]
+        if _sources.get("chatdoctor", {}).get("enabled", True)
         else []
     ),
     RAW_DIR / "frenchmedmcqa" / "frenchmedmcqa_raw.jsonl",
