@@ -66,6 +66,64 @@ Voir [`audit/rgpd_report.md`](audit/rgpd_report.md) pour le détail du processus
 
 ---
 
+## Étape 2 – Fine-tuning SFT (LoRA)
+
+Fine-tuning supervisé de **Qwen3-1.7B** avec LoRA, exécuté sur Google Colab (GPU requis).
+
+**Notebook :** [`notebooks/04_sft_qwen3_14b_alpaca.ipynb`](notebooks/04_sft_qwen3_14b_alpaca.ipynb) — ouvrir depuis GitHub dans Colab.
+
+### Stack
+
+- [Unsloth](https://unsloth.ai) + `trl` SFTTrainer + `peft` LoRA
+- Tracking : [Weights & Biases](https://wandb.ai) (project `chsa-sft-qwen3`)
+
+### Configuration LoRA
+
+| Paramètre | Valeur |
+|---|---|
+| Modèle base | `unsloth/Qwen3-1.7B-unsloth-bnb-4bit` |
+| Rank (r) | 8 |
+| LoRA alpha | 16 |
+| Dropout | 0.05 |
+| Modules | q/k/v/o_proj + gate/up/down_proj |
+| Paramètres entraînables | ~1 % |
+
+### Hyperparamètres
+
+| Paramètre | Valeur |
+|---|---|
+| Epochs | 3 |
+| Learning rate | 2e-4 (cosine) |
+| Batch effectif | 8 (1 × 8 grad. accum.) |
+| Warmup ratio | 0.1 |
+| Optimizer | adamw_8bit |
+| Seed | 42 |
+| Checkpoints | tous les 200 steps |
+
+### Thinking Mode Qwen3
+
+Qwen3 supporte un mode raisonnement (`<think>...</think>`) activé via `/think` dans le prompt. Pour préserver cette capacité après SFT, le dataset est mixé : **75 % `/think`** + **25 % `/no_think`**.
+
+Paramètres d'inférence recommandés : `temperature=0.6`, `top_p=0.95`, `top_k=20`.
+
+### Modèle publié
+
+[`XavierCoulon/qwen3-1.7b-chsa-sft-lora`](https://huggingface.co/XavierCoulon/qwen3-1.7b-chsa-sft-lora) — adapters LoRA sur HuggingFace Hub.
+
+### Workflow Colab ↔ GitHub
+
+```
+Problème ou amélioration identifié dans Colab
+     ↓
+Partager le traceback / output ici
+     ↓
+Édition locale du notebook + commit + push
+     ↓
+Colab : File > Open notebook from GitHub → re-run
+```
+
+---
+
 ## Schéma des métadonnées
 
 Chaque enregistrement normalisé contient un bloc `metadata` commun :
