@@ -7,14 +7,18 @@ def collect(target_pairs: int, output_dir: Path) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     output_file = output_dir / "mediqa_raw.jsonl"
 
-    dataset = load_dataset("lavita/medical-qa-datasets", "medical_meadow_mediqa", split="train")
+    dataset = load_dataset(
+        "lavita/medical-qa-datasets", "medical_meadow_mediqa", split="train"
+    )
 
     count = 0
     with open(output_file, "w", encoding="utf-8") as f:
         for row in dataset:
             if count >= target_pairs:
                 break
-            question = (row.get("input") or row.get("question") or "").strip()
+            # Structure du dataset : instruction = question patient, input = document contexte, output = réponse
+            # Bug corrigé : row["input"] est le document Mayo Clinic (contexte), pas la question patient
+            question = (row.get("instruction") or row.get("question") or "").strip()
             answer = (row.get("output") or row.get("answer") or "").strip()
             if not question or not answer:
                 continue
