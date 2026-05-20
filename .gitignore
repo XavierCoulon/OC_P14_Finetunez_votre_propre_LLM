@@ -2,6 +2,9 @@
 data/raw/
 data/interim/
 
+# Logs d'audit (append-only, trop volumineux pour git)
+audit/transformation_log.jsonl
+
 # Environnement Python
 .venv/
 __pycache__/
