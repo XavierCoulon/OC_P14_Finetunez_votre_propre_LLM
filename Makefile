@@ -1,5 +1,5 @@
 .PHONY: collect normalize anonymize split validate publish push-hub pipeline \
-        api-up api-down api-logs api-test api-bench lint test
+        api-up api-down api-logs api-test api-bench api-prod api-bench-prod lint test
 
 collect:
 	uv run python scripts/01_collect.py
@@ -43,6 +43,13 @@ api-test:
 		| python -m json.tool
 
 api-bench:
+	uv run python scripts/benchmark_latency.py --url http://localhost:8080 --key $${API_KEY}
+
+api-prod:
+	export $$(cat .env | grep -v '#' | xargs) && \
+	uv run uvicorn src.api.main:app --host 0.0.0.0 --port 8080
+
+api-bench-prod:
 	uv run python scripts/benchmark_latency.py --url http://localhost:8080 --key $${API_KEY}
 
 # --- Qualité du code ---

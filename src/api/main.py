@@ -5,17 +5,25 @@ from collections import deque
 from statistics import median, quantiles
 
 import httpx
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Request, Security
 from fastapi.responses import JSONResponse
+from fastapi.security import APIKeyHeader
 
 from .middleware import audit_log, new_request_id, verify_api_key
 from .models import TriageRequest, TriageResponse
 
 VLLM_URL = os.environ.get("VLLM_URL", "http://localhost:8000")
 MODEL_NAME = os.environ.get("MODEL_NAME", "XavierCoulon/qwen3-1.7b-chsa-sft-merged")
+HF_TOKEN = os.environ.get("HF_TOKEN", "")  # requis pour HF Inference Endpoints
 MAX_NEW_TOKENS = 512
 
-app = FastAPI(title="CHSA Triage API", version="1.0.0")
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+app = FastAPI(
+    title="CHSA Triage API",
+    version="1.0.0",
+    swagger_ui_parameters={"persistAuthorization": True},
+)
 
 # Rolling window pour les métriques (1 000 dernières requêtes)
 _latencies: deque[float] = deque(maxlen=1000)
@@ -39,7 +47,7 @@ def _extract_thinking(text: str) -> tuple[str, str | None]:
     return response, thinking
 
 
-@app.post("/v1/triage", response_model=TriageResponse, dependencies=[Depends(verify_api_key)])
+@app.post("/v1/triage", response_model=TriageResponse, dependencies=[Depends(verify_api_key), Security(api_key_header)])
 async def triage(body: TriageRequest, request: Request) -> TriageResponse:
     global _errors, _total
     request_id = new_request_id()
@@ -47,23 +55,25 @@ async def triage(body: TriageRequest, request: Request) -> TriageResponse:
     status_code = 200
 
     try:
-        prompt = _build_prompt(body.patient_description, body.think)
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        think_tag = "/think" if body.think else "/no_think"
+        headers = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
+        async with httpx.AsyncClient(timeout=60.0, headers=headers) as client:
             resp = await client.post(
-                f"{VLLM_URL}/v1/completions",
+                f"{VLLM_URL}/v1/chat/completions",
                 json={
                     "model": MODEL_NAME,
-                    "prompt": prompt,
+                    "messages": [
+                        {"role": "user", "content": f"{think_tag}\n{body.patient_description}"}
+                    ],
                     "max_tokens": MAX_NEW_TOKENS,
                     "temperature": 0.6,
                     "top_p": 0.95,
-                    "top_k": 20,
                     "repetition_penalty": 1.2,
                 },
             )
             resp.raise_for_status()
 
-        raw = resp.json()["choices"][0]["text"]
+        raw = resp.json()["choices"][0]["message"]["content"]
         response_text, thinking = _extract_thinking(raw)
         _total += 1
     except Exception as exc:
