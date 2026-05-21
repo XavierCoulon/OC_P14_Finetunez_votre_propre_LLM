@@ -1,0 +1,34 @@
+services:
+  vllm:
+    image: vllm/vllm-openai:latest
+    command:
+      - "--model"
+      - "${MODEL_NAME:-XavierCoulon/qwen3-1.7b-chsa-sft-merged}"
+      - "--max-model-len"
+      - "2048"
+      - "--dtype"
+      - "float16"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/root/.cache/huggingface
+    environment:
+      HUGGING_FACE_HUB_TOKEN: ${HF_TOKEN}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      VLLM_URL: http://vllm:8000
+      MODEL_NAME: ${MODEL_NAME:-XavierCoulon/qwen3-1.7b-chsa-sft-merged}
+      API_KEY: ${API_KEY}
+    depends_on:
+      - vllm

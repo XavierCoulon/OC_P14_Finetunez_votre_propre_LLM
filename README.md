@@ -124,6 +124,96 @@ Colab : File > Open notebook from GitHub → re-run
 
 ---
 
+## Étape 3 – Déploiement vLLM + FastAPI + CI/CD
+
+### Stack
+
+- **vLLM** : serveur d'inférence OpenAI-compatible (batching dynamique, PagedAttention)
+- **FastAPI** : proxy API avec authentification par clé et audit RGPD
+- **Docker / docker-compose** : conteneurisation et reproductibilité
+- **GitHub Actions** : CI (lint + tests + build) / CD (push image GHCR sur tag)
+
+### Prérequis
+
+1. Fusionner les adapters LoRA → modèle 16bit (activer la cellule commentée dans `cell-18` du notebook SFT) :
+   ```python
+   model.push_to_hub_merged("XavierCoulon/qwen3-1.7b-chsa-sft-merged", tokenizer,
+                             save_method="merged_16bit", token=HF_TOKEN)
+   ```
+2. Configurer `.env` (copier depuis `.env.example`) :
+   ```bash
+   cp .env.example .env
+   # renseigner HF_TOKEN, API_KEY (openssl rand -hex 32), MODEL_NAME
+   ```
+
+### Lancement local
+
+```bash
+docker compose up
+```
+
+Tester l'endpoint :
+
+```bash
+curl -X POST http://localhost:8080/v1/triage \
+     -H "X-API-Key: $API_KEY" \
+     -H "Content-Type: application/json" \
+     -d '{"patient_description": "Homme 52 ans, douleur thoracique irradiant bras gauche, sueurs froides.", "think": true}'
+```
+
+### Endpoints
+
+| Endpoint | Description |
+|---|---|
+| `POST /v1/triage` | Analyse triage médical (auth requise) |
+| `GET /health` | Status + modèle chargé |
+| `GET /metrics` | Latence P50/P95/P99, compteurs requêtes/erreurs |
+
+### Benchmark de latence
+
+```bash
+uv run python scripts/benchmark_latency.py --url http://localhost:8080 --key $API_KEY
+```
+
+Résultats sauvegardés dans `audit/benchmark_results.json`.
+
+### Métriques de performance (à compléter après run)
+
+| Métrique | Valeur |
+|---|---|
+| Latence P50 | — |
+| Latence P95 | — |
+| Tokens/s | — |
+| Taux d'erreur | — |
+
+### CI/CD
+
+- **CI** (chaque push sur `main`) : lint ruff + pytest + docker build → [GitHub Actions](https://github.com/XavierCoulon/OC_P14_Finetunez_votre_propre_LLM/actions)
+- **CD** (tag `v*`) : push image sur `ghcr.io/xaviercoulon/chsa-triage-api`
+
+### Limites d'usage
+
+- POC **non validé cliniquement** — usage expérimental uniquement, sous supervision médicale
+- Contexte maximum : **2 048 tokens** (tronqué silencieusement au-delà)
+- Langues supportées : **FR** (prioritaire) et **EN**
+- Pas d'accès aux constantes vitales en temps réel
+
+### Checklist go/no-go
+
+Voir [`docs/go_no_go_checklist.md`](docs/go_no_go_checklist.md) — à compléter avant la soutenance.
+
+### Roadmap déploiement production
+
+| Étape | Action |
+|---|---|
+| Validation clinique | Revue par médecins urgentistes sur 500 cas réels |
+| DPO | Alignement par préférences pour classification P1/P2/P3 |
+| Infrastructure | Déploiement sur GPU dédié (HF Inference Endpoints ou cloud) |
+| Sécurité | Audit de sécurité, rotation des clés, rate limiting |
+| Conformité | Validation RGPD complète, DPA avec établissement |
+
+---
+
 ## Schéma des métadonnées
 
 Chaque enregistrement normalisé contient un bloc `metadata` commun :
