@@ -17,6 +17,17 @@ MODEL_NAME = os.environ.get("MODEL_NAME", "XavierCoulon/qwen3-1.7b-chsa-sft-merg
 HF_TOKEN = os.environ.get("HF_TOKEN", "")  # requis pour HF Inference Endpoints
 MAX_NEW_TOKENS = 512
 
+SYSTEM_PROMPT = """Tu es un agent de triage médical pour le Centre Hospitalier Saint-Aurélien (CHSA).
+À partir de la description du patient, tu dois :
+1. Classer le cas selon le niveau de priorité :
+   - **P1 – Urgence absolue** : pronostic vital engagé, prise en charge immédiate (< 5 min)
+   - **P2 – Urgence relative** : situation grave mais stable, prise en charge rapide (< 20 min)
+   - **P3 – Urgence différée** : situation non critique, peut attendre (< 2h)
+2. Justifier brièvement la classification
+3. Indiquer les premiers gestes ou examens prioritaires
+
+Réponds toujours en commençant par le niveau de priorité en gras."""
+
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 app = FastAPI(
@@ -63,6 +74,7 @@ async def triage(body: TriageRequest, request: Request) -> TriageResponse:
                 json={
                     "model": MODEL_NAME,
                     "messages": [
+                        {"role": "system", "content": SYSTEM_PROMPT},
                         {"role": "user", "content": f"{think_tag}\n{body.patient_description}"}
                     ],
                     "max_tokens": MAX_NEW_TOKENS,
