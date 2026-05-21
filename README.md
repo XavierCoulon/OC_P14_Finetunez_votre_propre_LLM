@@ -68,9 +68,9 @@ Voir [`audit/rgpd_report.md`](audit/rgpd_report.md) pour le détail du processus
 
 ## Étape 2 – Fine-tuning SFT (LoRA)
 
-Fine-tuning supervisé de **Qwen3-1.7B** avec LoRA, exécuté sur Google Colab (GPU requis).
+Fine-tuning supervisé de **Qwen3-1.7B** avec LoRA, exécuté sur Kaggle ou Google Colab (GPU requis).
 
-**Notebook :** [`notebooks/04_sft_qwen3_14b_alpaca.ipynb`](notebooks/04_sft_qwen3_14b_alpaca.ipynb) — ouvrir depuis GitHub dans Colab.
+**Notebook :** [`notebooks/04_sft_qwen3_14b_alpaca.ipynb`](notebooks/04_sft_qwen3_14b_alpaca.ipynb) — compatible Kaggle et Colab (détection automatique).
 
 ### Stack
 
@@ -110,17 +110,40 @@ Paramètres d'inférence recommandés : `temperature=0.6`, `top_p=0.95`, `top_k=
 
 [`XavierCoulon/qwen3-1.7b-chsa-sft-lora`](https://huggingface.co/XavierCoulon/qwen3-1.7b-chsa-sft-lora) — adapters LoRA sur HuggingFace Hub.
 
-### Workflow Colab ↔ GitHub
+### Workflow Kaggle/Colab ↔ GitHub
 
 ```
-Problème ou amélioration identifié dans Colab
+Problème ou amélioration identifié dans le notebook
      ↓
-Partager le traceback / output ici
+Édition locale + commit + push
      ↓
-Édition locale du notebook + commit + push
-     ↓
-Colab : File > Open notebook from GitHub → re-run
+Kaggle/Colab : importer le notebook depuis GitHub → re-run
 ```
+
+---
+
+## Étape 2b – Alignement DPO
+
+Alignement par préférences sur **1 600 paires** chosen/rejected (UltraMedical-Preference), exécuté sur Kaggle ou Colab (GPU requis).
+
+**Notebook :** [`notebooks/05_dpo_qwen3_kaggle.ipynb`](notebooks/05_dpo_qwen3_kaggle.ipynb)
+
+### Configuration DPO
+
+| Paramètre | Valeur |
+|---|---|
+| Beta | 0.1 |
+| Epochs | 1 |
+| Learning rate | 5e-5 (cosine) |
+| Batch effectif | 4 (1 × 4 grad. accum.) |
+| Max length | 1 024 tokens |
+
+### Modèles publiés
+
+| Modèle | Description |
+|---|---|
+| [`XavierCoulon/qwen3-1.7b-chsa-dpo`](https://huggingface.co/XavierCoulon/qwen3-1.7b-chsa-dpo) | Adapters LoRA DPO |
+| [`XavierCoulon/qwen3-1.7b-chsa-dpo-merged`](https://huggingface.co/XavierCoulon/qwen3-1.7b-chsa-dpo-merged) | Modèle fusionné 16bit pour vLLM |
 
 ---
 
@@ -129,36 +152,41 @@ Colab : File > Open notebook from GitHub → re-run
 ### Stack
 
 - **vLLM** : serveur d'inférence OpenAI-compatible (batching dynamique, PagedAttention)
+- **HuggingFace Inference Endpoints** : hébergement GPU managé (T4, scale-to-zero) — [endpoint déployé](https://huggingface.co/XavierCoulon/qwen3-1.7b-chsa-dpo-merged)
 - **FastAPI** : proxy API avec authentification par clé et audit RGPD
-- **Docker / docker-compose** : conteneurisation et reproductibilité
+- **Docker / docker-compose** : conteneurisation et reproductibilité (développement local)
 - **GitHub Actions** : CI (lint + tests + build) / CD (push image GHCR sur tag)
 
 ### Prérequis
 
-1. Fusionner les adapters LoRA → modèle 16bit (activer la cellule commentée dans `cell-18` du notebook SFT) :
-   ```python
-   model.push_to_hub_merged("XavierCoulon/qwen3-1.7b-chsa-sft-merged", tokenizer,
-                             save_method="merged_16bit", token=HF_TOKEN)
-   ```
+1. Le modèle merged `XavierCoulon/qwen3-1.7b-chsa-dpo-merged` est déjà publié sur HF Hub (généré en fin de notebook DPO, cellule `cell-16`).
 2. Configurer `.env` (copier depuis `.env.example`) :
    ```bash
    cp .env.example .env
-   # renseigner HF_TOKEN, API_KEY (openssl rand -hex 32), MODEL_NAME
+   # renseigner HF_TOKEN, API_KEY (openssl rand -hex 32), VLLM_URL, MODEL_NAME
    ```
 
-### Lancement local
+### Lancement production (HF Inference Endpoints)
 
 ```bash
-docker compose up
+make api-prod
 ```
 
-Tester l'endpoint :
+L'API FastAPI se connecte à l'endpoint vLLM hébergé sur HuggingFace. Le `VLLM_URL` dans `.env` pointe vers l'endpoint HF.
+
+Tester :
 
 ```bash
 curl -X POST http://localhost:8080/v1/triage \
      -H "X-API-Key: $API_KEY" \
      -H "Content-Type: application/json" \
-     -d '{"patient_description": "Homme 52 ans, douleur thoracique irradiant bras gauche, sueurs froides.", "think": true}'
+     -d '{"patient_description": "Homme 52 ans, douleur thoracique irradiant bras gauche, sueurs froides.", "think": false}'
+```
+
+### Lancement local (Docker)
+
+```bash
+docker compose up
 ```
 
 ### Endpoints
@@ -172,19 +200,29 @@ curl -X POST http://localhost:8080/v1/triage \
 ### Benchmark de latence
 
 ```bash
-uv run python scripts/benchmark_latency.py --url http://localhost:8080 --key $API_KEY
+make api-bench-prod
 ```
 
 Résultats sauvegardés dans `audit/benchmark_results.json`.
 
-### Métriques de performance (à compléter après run)
+### Métriques de performance (GPU T4 — HF Inference Endpoints)
 
 | Métrique | Valeur |
 |---|---|
-| Latence P50 | — |
+| Latence P50 | ~9 800 ms |
 | Latence P95 | — |
 | Tokens/s | — |
-| Taux d'erreur | — |
+| Taux d'erreur | 0 % |
+
+> Latence mesurée avec `think=false` sur T4. Élevée pour un POC ; acceptable en contexte hospitalier non-urgent. Le mode `think=true` (chaîne de raisonnement) augmente la latence mais améliore la qualité de réponse.
+
+### Configuration vLLM (HF Inference Endpoints)
+
+Arguments de démarrage requis pour Qwen3 sur T4 :
+
+```
+--max-model-len 2048 --dtype float16 --enforce-eager
+```
 
 ### CI/CD
 
@@ -197,6 +235,7 @@ Résultats sauvegardés dans `audit/benchmark_results.json`.
 - Contexte maximum : **2 048 tokens** (tronqué silencieusement au-delà)
 - Langues supportées : **FR** (prioritaire) et **EN**
 - Pas d'accès aux constantes vitales en temps réel
+- Les réponses tendent vers des conseils médicaux généraux plutôt qu'une classification P1/P2/P3 stricte (limite du corpus d'entraînement)
 
 ### Checklist go/no-go
 
@@ -207,8 +246,8 @@ Voir [`docs/go_no_go_checklist.md`](docs/go_no_go_checklist.md) — à compléte
 | Étape | Action |
 |---|---|
 | Validation clinique | Revue par médecins urgentistes sur 500 cas réels |
-| DPO | Alignement par préférences pour classification P1/P2/P3 |
-| Infrastructure | Déploiement sur GPU dédié (HF Inference Endpoints ou cloud) |
+| Corpus triage | Enrichir avec des paires P1/P2/P3 annotées pour améliorer la classification |
+| Infrastructure | GPU dédié (A10G) pour latence < 2 s |
 | Sécurité | Audit de sécurité, rotation des clés, rate limiting |
 | Conformité | Validation RGPD complète, DPA avec établissement |
 
