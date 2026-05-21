@@ -8,12 +8,11 @@ Améliorations vs v1 :
 - Seuil NRP relevé à 0.85 : réduit les faux positifs sur organisations médicales
 """
 import json
-import re
 from pathlib import Path
 from datetime import datetime, timezone
 from hashlib import sha256
 
-from presidio_analyzer import AnalyzerEngine, RecognizerRegistry
+from presidio_analyzer import AnalyzerEngine
 from presidio_analyzer.nlp_engine import NlpEngineProvider
 from presidio_anonymizer import AnonymizerEngine
 from presidio_anonymizer.entities import OperatorConfig

@@ -6,7 +6,6 @@ import uuid
 from pathlib import Path
 
 from fastapi import HTTPException, Request, status
-from starlette.middleware.base import BaseHTTPMiddleware
 
 AUDIT_LOG = Path("audit/api_log.jsonl")
 AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)

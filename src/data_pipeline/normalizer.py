@@ -4,7 +4,6 @@ Entrée  : data/raw/<source>/<source>_raw.jsonl
 Sortie  : data/interim/normalized/<source>_normalized.jsonl
 """
 import json
-import uuid
 from pathlib import Path
 from datetime import datetime, timezone
 
