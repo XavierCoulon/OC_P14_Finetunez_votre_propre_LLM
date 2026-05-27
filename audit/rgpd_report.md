@@ -2,7 +2,7 @@
 
 **Projet** : POC Agent IA Triage Médical – CHSA  
 **Modèle** : Qwen3-1.7B-Base → SFT (LoRA) → DPO  
-**Date** : 2026-05-08  
+**Date** : 2026-05-27  
 **Outil** : Microsoft Presidio (presidio-analyzer + presidio-anonymizer)
 
 ---
@@ -25,6 +25,20 @@ uv run python -m spacy download en_core_web_lg    # modèle NLP anglais
 - Seuil global : `score_threshold = 0.70`, seuil NRP strict : `0.85`
 - Filtre longueur minimale : entités < 3 chars ignorées (lettres isolées type A/B/C en QCM)
 - Allowlist médicale : ~50 termes (éponyms de syndromes, abréviations d'organisations)
+- **Post-processing regex** (`_apply_name_regex`) : capture les prénoms sous-scorés par Presidio via les patterns `my name is X`, `Dear X,`, `Hi X,`, `Thanks X` — avec liste d'exclusion pour les faux positifs courants (`Doctor`, `Chat`, `Friend`, etc.)
+
+**Entités PII détectées et masquées :**
+
+| Entité | Description | Statut |
+|---|---|---|
+| `PERSON` | Noms et prénoms | ✅ Actif |
+| `LOCATION` | Lieux géographiques | ✅ Actif |
+| `DATE_TIME` | Dates, heures, âges | ✅ Actif |
+| `PHONE_NUMBER` | Numéros de téléphone | ✅ Actif |
+| `EMAIL_ADDRESS` | Adresses email | ✅ Actif |
+| `NRP` | Nationalité, religion, groupe politique | ✅ Actif (seuil 0.85) |
+| `MEDICAL_LICENSE` | Numéro RPPS / licence médicale | ✗ Non activé — à activer en production hospitalière |
+| `IP_ADDRESS` / `IBAN_CODE` / `CREDIT_CARD` | Données financières et réseau | ✗ Non activé — hors contexte corpus |
 
 **Traçabilité :** chaque enregistrement traité génère une entrée dans `audit/transformation_log.jsonl` (opération, timestamp, fichier source/sortie, nombre d'entités — jamais le contenu textuel).
 
@@ -103,7 +117,27 @@ Presidio a été exécuté sur la totalité des sources normalisées. Les résul
 
 ---
 
-### 2.4 UltraMedical DPO — EN, 2 000 paires chosen/rejected
+### 2.4 ChatDoctor (HealthcareMagic) — EN, 1 000 entrées
+
+**Nature des données :** Vraies consultations patient-médecin issues de HealthcareMagic. Contenu réel : questions de patients avec prénoms, symptômes personnels, contexte médical individuel.
+
+**PII réels identifiés :** Oui — source à risque réel.
+
+**Résultats Presidio :** 3 052 entités masquées sur 1 000 enregistrements (PERSON, DATE_TIME, LOCATION, PHONE_NUMBER).
+
+**PII manqué détecté lors de l'audit post-anonymisation :**
+
+| Enregistrement | Champ | Texte brut | Cause |
+|---|---|---|---|
+| l.324 | instruction + response | `my name is Amber` / `Dear Amber,` | Presidio score < 0.70 sur prénom court sans contexte fort |
+
+**Correctif appliqué :** `_apply_name_regex()` — post-processing regex actif depuis 2026-05-27. Le record l.324 a été re-anonymisé : `Amber` → `<PERSON>` aux deux occurrences.
+
+**Décision :** Presidio actif (pas de `skip_anonymization`).
+
+---
+
+### 2.5 UltraMedical DPO — EN, 2 000 paires chosen/rejected
 
 **Nature des données :** Deux types de contenu — (a) prompts académiques de synthèse médicale ("Investigate immunometabolism..."), (b) vignettes cliniques synthétiques identiques à UltraMedical SFT.
 
@@ -117,16 +151,17 @@ Presidio a été exécuté sur la totalité des sources normalisées. Les résul
 
 ## 3. Synthèse des décisions
 
-| Source | Type | Langue | PII réels | % records affectés | Décision |
+| Source | Type | Langue | PII réels | Décision | Statut |
 |---|---|---|---|---|---|
-| FrenchMedMCQA | QCM d'examen (ECN) | FR | ✗ Aucun | 48 % faux positifs | `skip_anonymization` |
-| MedQuAD | Q&A encyclopédique NIH | EN | ✗ Aucun | 46 % faux positifs | `skip_anonymization` |
-| UltraMedical SFT | Vignettes synthétiques (USMLE) | EN | ✗ Aucun | 98 % faux positifs | `skip_anonymization` |
-| UltraMedical DPO | Paires préférences (USMLE) | EN | ✗ Aucun | 84 % faux positifs | `skip_anonymization` |
+| ChatDoctor | Consultations patient-médecin réelles | EN | ✅ Oui | Presidio actif + regex | ✅ Anonymisé (3 052 entités + correctif Amber) |
+| FrenchMedMCQA | QCM d'examen (ECN) | FR | ✗ Aucun | `skip_anonymization` | ✅ Aucun PII (48 % faux positifs évités) |
+| MedQuAD | Q&A encyclopédique NIH | EN | ✗ Aucun | `skip_anonymization` | ✅ Aucun PII (46 % faux positifs évités) |
+| UltraMedical SFT | Vignettes synthétiques (USMLE) | EN | ✗ Aucun | `skip_anonymization` | ✅ Aucun PII (98 % faux positifs évités) |
+| UltraMedical DPO | Paires préférences (USMLE) | EN | ✗ Aucun | `skip_anonymization` | ✅ Aucun PII (84 % faux positifs évités) |
 
-**Conclusion générale :** Aucune des quatre sources actives ne contient de données personnelles de patients réels. Les sources sont toutes publiques, sous licences ouvertes (Apache 2.0, CC BY 4.0, MIT), et ont été conçues explicitement pour l'entraînement de modèles IA médicaux.
+**Conclusion générale :** ChatDoctor est la seule source contenant de vraies données patients — elle est la seule soumise à Presidio. Les quatre autres sources sont publiques, éducatives, sans PII patient, et leur anonymisation produisait uniquement des faux positifs dégradant la valeur clinique des données.
 
-L'application de Presidio en mode non supervisé sur ces sources produisait uniquement des faux positifs (termes médicaux capitalisés, noms de maladies, acronymes de gènes, âges synthétiques) sans détecter aucun vrai PII. La décision `skip_anonymization` est le **résultat du contrôle qualité** du masquage.
+Un audit post-anonymisation (2026-05-27) a détecté un PII manqué sur ChatDoctor (prénom `Amber`, score Presidio < 0.70). Un correctif regex ciblé a été appliqué et le fichier re-généré.
 
 ---
 

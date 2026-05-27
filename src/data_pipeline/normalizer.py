@@ -7,6 +7,16 @@ import json
 from pathlib import Path
 from datetime import datetime, timezone
 
+MIN_RESPONSE_WORDS = 5
+MAX_INSTRUCTION_WORDS = 2000
+
+SOURCE_CONFIDENCE: dict[str, str] = {
+    "chatdoctor": "high",
+    "medquad": "high",
+    "frenchmedmcqa": "medium",
+    "ultramedical_sft": "low",
+}
+
 
 def _log_entry(transformation_id: str, source_file: str, output_file: str, record_id: str) -> dict:
     return {
@@ -43,7 +53,7 @@ def normalize_sft_file(input_file: Path, output_file: Path, audit_log: Path) -> 
                     "symptoms": [],
                     "antecedents": [],
                     "constantes": {},
-                    "confidence_level": "medium",
+                    "confidence_level": SOURCE_CONFIDENCE.get(source_name, "medium"),
                     "original_source_id": raw.get("original_id", str(i)),
                     "transformation_ids": [transformation_id],
                     "split": None,
@@ -52,11 +62,9 @@ def normalize_sft_file(input_file: Path, output_file: Path, audit_log: Path) -> 
 
             if not record["instruction"] or not record["response"]:
                 continue
-            # Filtrer les réponses trop courtes (ex: QCM lettre seule)
-            if len(record["response"].split()) < 5:
+            if len(record["response"].split()) < MIN_RESPONSE_WORDS:
                 continue
-            # Filtrer les instructions trop longues (textes cliniques >2000 mots)
-            if len(record["instruction"].split()) > 2000:
+            if len(record["instruction"].split()) > MAX_INSTRUCTION_WORDS:
                 continue
 
             fout.write(json.dumps(record, ensure_ascii=False) + "\n")

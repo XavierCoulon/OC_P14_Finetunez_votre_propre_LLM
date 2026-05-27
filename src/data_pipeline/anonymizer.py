@@ -6,8 +6,11 @@ Améliorations vs v1 :
 - Filtre longueur minimale : entités < 3 chars ignorées (évite A/B/C/D/E des QCM)
 - Allowlist médicale : termes médicaux latins/grecs fréquemment mal taguées
 - Seuil NRP relevé à 0.85 : réduit les faux positifs sur organisations médicales
+- Post-processing regex : capture les prénoms que Presidio score sous le seuil
+  (patterns "my name is X", "Dear X,", "Hi X,", "Thanks X")
 """
 import json
+import re
 from pathlib import Path
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -45,6 +48,21 @@ MEDICAL_ALLOWLIST = {
 # Champs de texte à anonymiser par type de dataset
 SFT_TEXT_FIELDS = ["instruction", "response"]
 DPO_TEXT_FIELDS = ["prompt", "chosen.content", "rejected.content"]
+
+# Patterns regex pour les prénoms que Presidio sous-score (ex: "my name is Amber")
+# Groupe 1 = le prénom capturé → remplacé par <PERSON>
+_NAME_REGEX_PATTERNS = [
+    re.compile(r'\bmy name is ([A-Z][a-z]{2,})\b'),
+    re.compile(r'\bDear ([A-Z][a-z]{2,})[,.]'),
+    re.compile(r'\bHi ([A-Z][a-z]{2,})[,.]'),
+    re.compile(r'\bThanks[,]? ([A-Z][a-z]{2,})\b'),
+]
+
+# Mots courants capitalisés à ne pas remplacer (noms de services, titres, etc.)
+_NAME_REGEX_EXCLUDES = {
+    "Doctor", "Dr", "Sir", "Madam", "Friend", "Chat", "Welcome",
+    "Please", "Thank", "Dear", "Health", "Care", "Medical",
+}
 
 
 def _build_engines(language: str):
@@ -85,20 +103,37 @@ def _filter_results(results: list, text: str) -> list:
     return filtered
 
 
+def _apply_name_regex(text: str) -> tuple[str, int]:
+    """Post-processing : remplace les prénoms détectés par regex que Presidio sous-score."""
+    count = 0
+    for pattern in _NAME_REGEX_PATTERNS:
+        def _replace(m: re.Match) -> str:
+            nonlocal count
+            name = m.group(1)
+            if name in _NAME_REGEX_EXCLUDES:
+                return m.group(0)
+            count += 1
+            return m.group(0).replace(name, "<PERSON>")
+        text = pattern.sub(_replace, text)
+    return text, count
+
+
 def _anonymize_text(text: str, analyzer: AnalyzerEngine, anonymizer: AnonymizerEngine, language: str) -> tuple[str, int]:
     if not text:
         return text, 0
+
     results = analyzer.analyze(text=text, language=language, entities=ENTITIES, score_threshold=SCORE_THRESHOLD)
-    if not results:
-        return text, 0
-
     results = _filter_results(results, text)
-    if not results:
-        return text, 0
 
-    operators = {entity: OperatorConfig("replace", {"new_value": f"<{entity}>"}) for entity in ENTITIES}
-    anonymized = anonymizer.anonymize(text=text, analyzer_results=results, operators=operators)
-    return anonymized.text, len(results)
+    count = 0
+    if results:
+        operators = {entity: OperatorConfig("replace", {"new_value": f"<{entity}>"}) for entity in ENTITIES}
+        anonymized = anonymizer.anonymize(text=text, analyzer_results=results, operators=operators)
+        text = anonymized.text
+        count = len(results)
+
+    text, regex_count = _apply_name_regex(text)
+    return text, count + regex_count
 
 
 def _checksum(text: str) -> str:

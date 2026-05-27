@@ -38,6 +38,40 @@ uv run python scripts/04_split.py
 uv run python scripts/05_validate.py
 ```
 
+### Normalisation (`02_normalize.py`)
+
+Convertit chaque fichier brut (`data/raw/`) vers un schéma unifié dans `data/interim/normalized/`.
+
+**Schéma SFT :**
+
+```json
+{ "id": "sft_medquad_000042", "source": "medquad", "language": "en",
+  "task_type": "medical_qa", "instruction": "...", "response": "...",
+  "metadata": { "original_source_id": "...", "transformation_ids": ["norm_medquad_000042"], "split": null } }
+```
+
+**Schéma DPO :**
+
+```json
+{ "id": "dpo_ultramedical_000001", "source": "ultramedical_preference", "language": "en",
+  "task_type": "medical_qa", "prompt": "...",
+  "chosen": { "role": "assistant", "content": "..." },
+  "rejected": { "role": "assistant", "content": "..." },
+  "metadata": { "chosen_score": 1.0, "rejected_score": 0.0, "transformation_ids": ["norm_dpo_000001"], "split": null } }
+```
+
+**Filtres appliqués :**
+
+| Filtre | Règle |
+|---|---|
+| Paires incomplètes | Supprimées si `instruction` ou `response` est vide |
+| Réponses trop courtes | Supprimées si < 5 mots (ex : réponses QCM lettre seule) |
+| Instructions trop longues | Supprimées si > 2 000 mots (textes cliniques hors contexte) |
+
+Chaque enregistrement produit une entrée dans `audit/transformation_log.jsonl` pour la traçabilité RGPD.
+
+---
+
 ## Sources de données
 
 | Source | HuggingFace | Langue | Type | Licence | Paires retenues | Statut |
@@ -271,15 +305,25 @@ Chaque enregistrement normalisé contient un bloc `metadata` commun :
 }
 ```
 
-| Champ | Type | Description | État |
-|---|---|---|---|
-| `symptoms` | `list[str]` | Symptômes extraits du texte (ex : `["fièvre", "douleur thoracique"]`) | Vide — extraction NLP hors scope étape 1 |
-| `antecedents` | `list[str]` | Antécédents médicaux du patient (ex : `["diabète", "hypertension"]`) | Vide — idem |
-| `constantes` | `dict` | Signes vitaux structurés (ex : `{"temperature": 38.5, "heart_rate": 97}`) | Vide — idem |
-| `confidence_level` | `str` | Qualité estimée de la paire : `"high"` (DPO avec scores), `"medium"` (SFT public) | Hardcodé par source |
-| `original_source_id` | `str` | Identifiant dans le dataset HuggingFace d'origine | ✅ Renseigné |
-| `transformation_ids` | `list[str]` | Traçabilité RGPD : liste des opérations appliquées (`norm_*`, `anon_*`) | ✅ Renseigné |
-| `split` | `str \| null` | Split d'appartenance (`"train"`, `"val"`, `"test"`) — renseigné par `04_split.py` | ✅ Renseigné après split |
+| Champ | Type | Description | État actuel | Amélioration possible (hors POC) |
+|---|---|---|---|---|
+| `symptoms` | `list[str]` | Symptômes extraits du texte (ex : `["fièvre", "douleur thoracique"]`) | Toujours `[]` | NER médical : `en_core_med7` (EN) ou `DrBenchmark/DrNER` (FR) |
+| `antecedents` | `list[str]` | Antécédents médicaux du patient (ex : `["diabète", "hypertension"]`) | Toujours `[]` | Idem — même pipeline NER |
+| `constantes` | `dict` | Signes vitaux structurés (ex : `{"temperature": 38.5, "heart_rate": 97}`) | Toujours `{}` | Parser regex ciblé (`T° 38.5`, `FC 97 bpm`, `TA 120/80`, `SpO2 98%`) |
+| `confidence_level` | `str` | Qualité estimée de la paire | Dérivé de la source via `SOURCE_CONFIDENCE` | Score dynamique : longueur réponse + entités NER détectées + `chosen_score` DPO |
+| `original_source_id` | `str` | Identifiant dans le dataset HuggingFace d'origine | Lu depuis `original_id` dans le raw, ou index de ligne | — |
+| `transformation_ids` | `list[str]` | Traçabilité RGPD : liste des opérations appliquées (`norm_*`, `anon_*`) | Généré : `norm_{source}_{i:06d}` | — |
+| `split` | `str \| null` | Split d'appartenance (`"train"`, `"val"`, `"test"`) | `null` à la normalisation — renseigné par `04_split.py` | Stratification par `symptoms` / `confidence_level` une fois les champs remplis |
+
+**Niveaux de confiance par source (`SOURCE_CONFIDENCE` dans `src/data_pipeline/normalizer.py`) :**
+
+| Source | `confidence_level` | Justification |
+|---|---|---|
+| ChatDoctor | `"high"` | Vraies consultations patient/médecin |
+| MedQuAD | `"high"` | QA officiel NIH |
+| FrenchMedMCQA | `"medium"` | QCM avec explication |
+| UltraMedical SFT | `"low"` | Vignettes synthétiques |
+| UltraMedical-Preference (DPO) | `"high"` | Paires scorées avec `chosen_score` / `rejected_score` |
 
 ### Pourquoi `symptoms`, `antecedents`, `constantes` sont vides
 
