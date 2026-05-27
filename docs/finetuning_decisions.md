@@ -7,14 +7,17 @@ Historique des décisions prises sur les hyperparamètres d'entraînement, justi
 ## SFT — Qwen3-1.7B LoRA
 
 **Notebook :** `notebooks/04_sft_qwen3_14b_alpaca.ipynb`  
-**Run de référence :** [`run-20260523-0701`](https://wandb.ai/xcoulon/chsa-sft-qwen3) (id: `f6gh2gd9`)  
-**Dataset :** `XavierCoulon/oc-p14-dataset` (split `sft`, ~4 324 paires au moment du run)
+**Runs de référence :**
+- [`run-20260523-0701`](https://wandb.ai/xcoulon/chsa-sft-qwen3) (id: `f6gh2gd9`) — 4 324 paires, 3 epochs
+- [`run-20260527-1118`](https://wandb.ai/xcoulon/chsa-sft-qwen3) (id: `kmrozvf9`) — 5 033 paires, 2 epochs
+
+**Dataset :** `XavierCoulon/oc-p14-dataset` (split `sft`, 5 033 paires actuellement)
 
 ### Paramètres actuels
 
 | Paramètre | Valeur |
 |---|---|
-| `num_train_epochs` | **2** |
+| `num_train_epochs` | **3** |
 | `learning_rate` | 2e-4 |
 | `lr_scheduler_type` | cosine |
 | `warmup_ratio` | 0.1 |
@@ -27,10 +30,10 @@ Historique des décisions prises sur les hyperparamètres d'entraînement, justi
 | LoRA `lora_alpha` | 16 |
 | LoRA `lora_dropout` | 0.05 |
 
-### Décisions et justifications
+### Historique des décisions — `num_train_epochs`
 
-#### `num_train_epochs` : 3 → **2**
-**Observation W&B :** L'eval loss atteint un plateau à partir de l'epoch ~1.85 (step 1000/1623). Les 4 dernières évaluations sont quasi identiques :
+#### Itération 1 : 3 → **2** *(run-20260523-0701, 4 324 paires)*
+**Observation :** Plateau à partir de l'epoch ~1.85 (step 1000/1623). Les 4 dernières évaluations sont quasi identiques :
 
 | Step | Epoch | Eval loss |
 |---|---|---|
@@ -39,19 +42,30 @@ Historique des décisions prises sur les hyperparamètres d'entraînement, justi
 | 1400 | 2.59 | 1.1274 |
 | 1600 | 2.96 | **1.1257** |
 
-L'epoch 3 complète (steps 1200–1623) n'apporte aucune amélioration mesurable et représente ~43 minutes de calcul inutiles sur GPU T4 Kaggle.
+**Décision :** passer à 2 epochs — ~43 min économisées. Note : « re-vérifier si le dataset grossit ».
 
-**Décision :** passer à 2 epochs. Si le dataset est agrandi (push-hub en attente), re-vérifier la courbe avant de conclure.
+#### Itération 2 : 2 → **3** *(run-20260527-1118, 5 033 paires)*
+**Observation :** Avec +16% de données (5 033 vs 4 324), la eval loss est encore en descente à la fin du run — aucun plateau :
 
-### Métriques finales du run de référence
+| Step | Epoch | Eval loss |
+|---|---|---|
+| 200  | 0.32 | 1.431 |
+| 400  | 0.64 | 1.373 |
+| 600  | 0.95 | 1.342 |
+| 800  | 1.27 | 1.326 |
+| 1000 | 1.59 | 1.314 |
+| 1200 | 1.91 | **1.310** ← encore en descente |
 
-| Métrique | Valeur |
-|---|---|
-| Train loss (moyenne run) | 1.166 |
-| Train loss (dernière valeur) | 1.03 |
-| Eval loss finale | 1.126 |
-| Grad norm (finale) | 0.97 |
-| Durée | 127.8 min |
+La décision à 2 epochs était calibrée sur 4 324 samples. Avec le dataset mis à jour, le modèle a besoin d'une epoch supplémentaire pour converger.
+
+**Décision :** revenir à 3 epochs. Règle générale : surveiller la courbe eval loss à chaque changement de taille de dataset.
+
+### Métriques des runs de référence SFT
+
+| Run | Dataset | Epochs | Train loss moy. | Eval loss finale | Durée |
+|---|---|---|---|---|---|
+| run-20260523-0701 | 4 324 | 3 | 1.166 | 1.126 | 127.8 min |
+| run-20260527-1118 | 5 033 | 2 | 1.430 | 1.310 | 96.8 min |
 
 ---
 
