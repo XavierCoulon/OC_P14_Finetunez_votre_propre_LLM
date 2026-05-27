@@ -1,4 +1,5 @@
 .PHONY: collect normalize anonymize split validate publish push-hub pipeline \
+        export-wandb \
         api-up api-down api-logs api-test api-bench api-prod api-bench-prod lint test
 
 collect:
@@ -23,6 +24,9 @@ push-hub:
 	uv run python scripts/07_push_to_hub.py
 
 pipeline: collect normalize anonymize split validate publish
+
+export-wandb:
+	uv run python scripts/08_export_wandb.py
 
 # --- API & Déploiement ---
 
