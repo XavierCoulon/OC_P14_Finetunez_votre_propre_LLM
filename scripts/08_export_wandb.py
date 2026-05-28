@@ -39,14 +39,18 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 
 
 def nan_to_null(obj):
-    """Convertit récursivement les NaN/Inf en None (→ null JSON)."""
+    """Convertit récursivement les NaN/Inf en None (→ null JSON), et force les types W&B en primitives."""
     if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
         return None
     if isinstance(obj, dict):
         return {k: nan_to_null(v) for k, v in obj.items()}
     if isinstance(obj, list):
         return [nan_to_null(v) for v in obj]
-    return obj
+    if hasattr(obj, "items"):
+        return {k: nan_to_null(v) for k, v in obj.items()}
+    if isinstance(obj, (int, float, str, bool, type(None))):
+        return obj
+    return str(obj)
 
 
 def split_history(rows: list[dict], train_keys: set, eval_keys: set):
