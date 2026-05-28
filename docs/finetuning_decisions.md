@@ -44,21 +44,25 @@ Historique des décisions prises sur les hyperparamètres d'entraînement, justi
 
 **Décision :** passer à 2 epochs — ~43 min économisées. Note : « re-vérifier si le dataset grossit ».
 
-#### Itération 2 : 2 → **3** *(run-20260527-1118, 5 033 paires)*
-**Observation :** Avec +16% de données (5 033 vs 4 324), la eval loss est encore en descente à la fin du run — aucun plateau :
+#### Itération 2 : 2 → 3 *(run-20260527-1118, 5 033 paires)* — temporaire
+**Observation :** Eval loss à 1.310 à epoch 1.91 (fin du run à 2 epochs), semblait encore en descente.  
+**Décision :** passage à 3 epochs — mais infirmée par l'itération suivante.
+
+#### Itération 3 : 3 → **2** *(run-20260528-1124, 5 033 paires)*
+**Observation :** Run complet à 3 epochs — le minimum d'eval loss est à step 1200 / epoch 1.91 (1.2957), identique au run précédent. L'epoch 3 n'améliore que de 0.011 (1.2957 → 1.2989 final) pour ~50 min de GPU supplémentaires.
 
 | Step | Epoch | Eval loss |
 |---|---|---|
-| 200  | 0.32 | 1.431 |
-| 400  | 0.64 | 1.373 |
-| 600  | 0.95 | 1.342 |
-| 800  | 1.27 | 1.326 |
-| 1000 | 1.59 | 1.314 |
-| 1200 | 1.91 | **1.310** ← encore en descente |
+| 200  | 0.32 | 1.4473 |
+| 600  | 0.95 | 1.3469 |
+| 1000 | 1.59 | 1.3120 |
+| **1200** | **1.91** | **1.2957** ← minimum |
+| 1400 | 2.22 | 1.3033 ← légère remontée |
+| 1800 | 2.86 | 1.2989 |
 
-La décision à 2 epochs était calibrée sur 4 324 samples. Avec le dataset mis à jour, le modèle a besoin d'une epoch supplémentaire pour converger.
+**Conclusion définitive :** le plateau à ~epoch 1.9 est une constante de ce dataset, indépendante de sa taille (4 324 ou 5 033 paires). 2 epochs est le meilleur compromis qualité/GPU.
 
-**Décision :** revenir à 3 epochs. Règle générale : surveiller la courbe eval loss à chaque changement de taille de dataset.
+**Nouvelle métrique :** ROUGE-L = **0.394** sur eval_clinique (100 cas) — baseline de référence pour comparaison post-DPO.
 
 ### Métriques des runs de référence SFT
 
