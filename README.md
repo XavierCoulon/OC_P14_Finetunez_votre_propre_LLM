@@ -166,10 +166,10 @@ Alignement par préférences sur **1 600 paires** chosen/rejected (UltraMedical-
 
 | Paramètre | Valeur |
 |---|---|
-| Beta | 0.1 |
+| Beta | 0.05 |
 | Epochs | 1 |
-| Learning rate | 5e-5 (cosine) |
-| Batch effectif | 4 (1 × 4 grad. accum.) |
+| Learning rate | 1e-5 (cosine) |
+| Batch effectif | 8 (1 × 8 grad. accum.) |
 | Max length | 1 024 tokens |
 
 ### Modèles publiés
@@ -178,6 +178,35 @@ Alignement par préférences sur **1 600 paires** chosen/rejected (UltraMedical-
 |---|---|
 | [`XavierCoulon/qwen3-1.7b-chsa-dpo`](https://huggingface.co/XavierCoulon/qwen3-1.7b-chsa-dpo) | Adapters LoRA DPO |
 | [`XavierCoulon/qwen3-1.7b-chsa-dpo-merged`](https://huggingface.co/XavierCoulon/qwen3-1.7b-chsa-dpo-merged) | Modèle fusionné 16bit pour vLLM |
+
+---
+
+## Évaluation — eval_clinique (ROUGE-L)
+
+Après chaque étape (SFT puis DPO), le modèle est évalué sur **100 cas cliniques isolés** (`eval_clinique`) qui n'ont aucun overlap avec les splits d'entraînement SFT ni DPO. Cette évaluation mesure la qualité des réponses via le score **ROUGE-L** (correspondance de sous-séquences communes entre la réponse générée et la référence).
+
+> ROUGE-L ∈ [0, 1] — 1 = réponse identique à la référence. Un score > 0.35 sur des données médicales structurées est considéré satisfaisant pour un modèle de 1.7B.
+
+### Interprétation
+
+| Score ROUGE-L | Interprétation |
+|---|---|
+| > 0.50 | Excellente couverture des éléments clés |
+| 0.35 – 0.50 | Bonne couverture, quelques éléments manquants |
+| 0.20 – 0.35 | Couverture partielle |
+| < 0.20 | Réponses hors sujet ou trop génériques |
+
+### Résultats
+
+| Modèle | ROUGE-L moyen (100 cas) |
+|---|---|
+| Qwen3-1.7B-Base (sans fine-tuning) | — |
+| **Après SFT** | **0.393** |
+| Après DPO | *(à compléter après prochain run)* |
+
+Les métriques et un tableau de 100 exemples (instruction / référence / généré / score) sont loggés dans W&B à la fin de chaque notebook :
+- SFT : projet [`chsa-sft-qwen3`](https://wandb.ai/xcoulon/chsa-sft-qwen3) → métrique `eval_clinique/rouge_l_mean`
+- DPO : projet [`chsa-dpo-qwen3`](https://wandb.ai/xcoulon/chsa-dpo-qwen3) → métrique `eval_clinique/rouge_l_mean`
 
 ---
 
