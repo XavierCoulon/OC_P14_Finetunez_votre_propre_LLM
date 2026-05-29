@@ -133,13 +133,28 @@ Un `beta` plus faible réduit la contrainte KL par rapport au modèle de référ
 
 **Décision :** passer à 50 steps pour avoir 4 points d'évaluation, ce qui suffit à voir la courbe sur 1 epoch.
 
-### Métriques finales du run de référence
+### Métriques des runs DPO
 
-| Métrique | Valeur |
-|---|---|
-| Train loss (moyenne run) | 0.556 |
-| Train loss (finale) | 0.451 |
-| Eval loss finale | 0.536 |
-| Eval rewards/accuracy | 75.0% |
-| Eval rewards/margin | 0.764 |
-| Durée | 45.3 min |
+| Run | beta | LR | Epochs | Eval loss | Accuracy | Margin | rewards/chosen | Durée |
+|---|---|---|---|---|---|---|---|---|
+| run-20260524-1138 | 0.1 | 2e-5 | 1 | 0.536 | 75.0% | 0.764 | −0.137 | 45.3 min |
+| run-20260529-0623 | 0.05 | 1e-5 | 1 | 0.616 | 76.0% | 0.277 | −0.206 | ~51 min |
+
+---
+
+## DPO — Itération 2 (post run-20260529-0623)
+
+### Paramètres ajustés
+
+| Paramètre | Avant | Après | Justification |
+|---|---|---|---|
+| `beta` | 0.05 | **0.02** | rewards/chosen restent négatifs (−0.206) — contrainte KL encore trop forte |
+| `num_train_epochs` | 1 | **2** | eval loss en descente à epoch 1.0 (0.6156), margin faible (0.277) — room to improve |
+
+`learning_rate` maintenu à 1e-5 — grad norms désormais sains (max 4.9 vs 13.6 avant).
+
+### Objectifs pour le prochain run
+
+- `rewards/chosen` positifs (ou moins négatifs) sur l'eval
+- `rewards/margin` > 0.4 (vs 0.277 actuel)
+- `eval/rewards/accuracies` > 77%
