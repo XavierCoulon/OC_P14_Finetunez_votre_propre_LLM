@@ -126,7 +126,7 @@ Fine-tuning supervisé de **Qwen3-1.7B** avec LoRA, exécuté sur Kaggle ou Goog
 
 | Paramètre | Valeur |
 |---|---|
-| Epochs | 3 |
+| Epochs | 2 |
 | Learning rate | 2e-4 (cosine) |
 | Batch effectif | 8 (1 × 8 grad. accum.) |
 | Warmup ratio | 0.1 |
@@ -166,8 +166,8 @@ Alignement par préférences sur **1 600 paires** chosen/rejected (UltraMedical-
 
 | Paramètre | Valeur |
 |---|---|
-| Beta | 0.05 |
-| Epochs | 1 |
+| Beta | 0.02 |
+| Epochs | 2 |
 | Learning rate | 1e-5 (cosine) |
 | Batch effectif | 8 (1 × 8 grad. accum.) |
 | Max length | 1 024 tokens |
@@ -181,32 +181,32 @@ Alignement par préférences sur **1 600 paires** chosen/rejected (UltraMedical-
 
 ---
 
-## Évaluation — eval_clinique (ROUGE-L)
+## Évaluation — eval_clinique (RAGAS)
 
-Après chaque étape (SFT puis DPO), le modèle est évalué sur **100 cas cliniques isolés** (`eval_clinique`) qui n'ont aucun overlap avec les splits d'entraînement SFT ni DPO. Cette évaluation mesure la qualité des réponses via le score **ROUGE-L** (correspondance de sous-séquences communes entre la réponse générée et la référence).
+Après chaque étape (SFT puis DPO), le modèle est évalué sur **100 cas cliniques isolés** (`eval_clinique`) sans aucun overlap avec les splits d'entraînement. L'évaluation utilise le framework **RAGAS** avec Mistral comme juge LLM et `sentence-transformers/all-MiniLM-L6-v2` pour les embeddings.
 
-> ROUGE-L ∈ [0, 1] — 1 = réponse identique à la référence. Un score > 0.35 sur des données médicales structurées est considéré satisfaisant pour un modèle de 1.7B.
+### Métriques
 
-### Interprétation
+| Métrique | Description | Besoin |
+|---|---|---|
+| **FactualCorrectness** | Exactitude factuelle vs référence (LLM-as-judge) | Mistral |
+| **ResponseRelevancy** | La réponse adresse-t-elle la question ? | Mistral + MiniLM |
+| **SemanticSimilarity** | Proximité sémantique avec la référence | MiniLM |
 
-| Score ROUGE-L | Interprétation |
-|---|---|
-| > 0.50 | Excellente couverture des éléments clés |
-| 0.35 – 0.50 | Bonne couverture, quelques éléments manquants |
-| 0.20 – 0.35 | Couverture partielle |
-| < 0.20 | Réponses hors sujet ou trop génériques |
+Toutes les métriques ∈ [0, 1] — 1 = réponse optimale.
 
 ### Résultats
 
-| Modèle | ROUGE-L moyen (100 cas) |
-|---|---|
-| Qwen3-1.7B-Base (sans fine-tuning) | — |
-| **Après SFT** | **0.393** |
-| Après DPO | *(à compléter après prochain run)* |
+| Modèle | FactualCorrectness | ResponseRelevancy | SemanticSimilarity |
+|---|---|---|---|
+| **Après SFT** | *(prochain run)* | *(prochain run)* | *(prochain run)* |
+| Après DPO | *(prochain run)* | *(prochain run)* | *(prochain run)* |
 
-Les métriques et un tableau de 100 exemples (instruction / référence / généré / score) sont loggés dans W&B à la fin de chaque notebook :
-- SFT : projet [`chsa-sft-qwen3`](https://wandb.ai/xcoulon/chsa-sft-qwen3) → métrique `eval_clinique/rouge_l_mean`
-- DPO : projet [`chsa-dpo-qwen3`](https://wandb.ai/xcoulon/chsa-dpo-qwen3) → métrique `eval_clinique/rouge_l_mean`
+Les métriques et un tableau de 100 exemples (instruction / référence / généré) sont loggés dans W&B :
+- SFT : projet [`chsa-sft-qwen3`](https://wandb.ai/xcoulon/chsa-sft-qwen3) → `eval_clinique/ragas_*`
+- DPO : projet [`chsa-dpo-qwen3`](https://wandb.ai/xcoulon/chsa-dpo-qwen3) → `eval_clinique/ragas_*`
+
+> Prérequis : secret `MISTRAL_API_KEY` dans Kaggle Secrets.
 
 ---
 
