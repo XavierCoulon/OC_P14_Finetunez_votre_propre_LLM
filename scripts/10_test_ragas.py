@@ -106,7 +106,7 @@ def main():
         from ragas.llms import LangchainLLMWrapper
         from ragas.embeddings import LangchainEmbeddingsWrapper
         from langchain_mistralai import ChatMistralAI
-        from langchain_community.embeddings import HuggingFaceEmbeddings
+        from langchain_huggingface import HuggingFaceEmbeddings
         import ragas
         print(f"  ragas version : {ragas.__version__}")
     except ImportError as e:
