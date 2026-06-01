@@ -11,6 +11,15 @@ Prérequis :
 """
 import os
 import sys
+import types
+
+# Patch de compatibilité : langchain-community >= 0.3 a supprimé le module vertexai
+# que ragas importe en dur. On injecte un stub pour débloquer l'import.
+if "langchain_community.chat_models.vertexai" not in sys.modules:
+    _stub = types.ModuleType("langchain_community.chat_models.vertexai")
+    class _ChatVertexAI: pass
+    _stub.ChatVertexAI = _ChatVertexAI
+    sys.modules["langchain_community.chat_models.vertexai"] = _stub
 
 # ── Exemples médicaux (instruction / reference / generated) ───────────────────
 SAMPLES = [
@@ -93,7 +102,7 @@ def main():
 
     try:
         from ragas import EvaluationDataset, SingleTurnSample, evaluate
-        from ragas.metrics.collections import FactualCorrectness, AnswerRelevancy, SemanticSimilarity
+        from ragas.metrics import FactualCorrectness, ResponseRelevancy, AnswerSimilarity
         from ragas.llms import LangchainLLMWrapper
         from ragas.embeddings import LangchainEmbeddingsWrapper
         from langchain_mistralai import ChatMistralAI
@@ -127,8 +136,8 @@ def main():
         dataset=EvaluationDataset(samples=ragas_samples),
         metrics=[
             FactualCorrectness(llm=ragas_llm),
-            AnswerRelevancy(llm=ragas_llm, embeddings=ragas_emb),
-            SemanticSimilarity(embeddings=ragas_emb),
+            ResponseRelevancy(llm=ragas_llm, embeddings=ragas_emb),
+            AnswerSimilarity(embeddings=ragas_emb),
         ],
     )
 
