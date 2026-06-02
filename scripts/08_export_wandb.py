@@ -12,6 +12,9 @@ import json
 import math
 from pathlib import Path
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import wandb
 
 PROJECTS = {
