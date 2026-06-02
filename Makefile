@@ -57,6 +57,7 @@ api-prod:
 	uv run uvicorn src.api.main:app --host 0.0.0.0 --port 8080
 
 api-bench-prod:
+	export $$(cat .env | grep -v '#' | xargs) && \
 	uv run python scripts/benchmark_latency.py --url http://localhost:8080 --key $${API_KEY}
 
 # --- Qualité du code ---
