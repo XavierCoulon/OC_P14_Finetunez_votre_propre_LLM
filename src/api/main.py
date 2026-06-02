@@ -26,7 +26,7 @@ SYSTEM_PROMPT_FR = """Tu es un agent de triage médical pour le Centre Hospitali
 2. Justifier brièvement la classification
 3. Indiquer les premiers gestes ou examens prioritaires
 
-Réponds en français en commençant toujours par le niveau de priorité en gras."""
+IMPORTANT : Ta réponse DOIT commencer par le niveau de priorité en gras, par exemple : **P1 – Urgence absolue**"""
 
 SYSTEM_PROMPT_EN = """You are a medical triage agent for the Centre Hospitalier Saint-Aurélien (CHSA).
 Based on the patient description, you must:
@@ -37,7 +37,7 @@ Based on the patient description, you must:
 2. Briefly justify the classification
 3. Indicate the first actions or priority examinations
 
-Answer in English, always starting with the priority level in bold."""
+IMPORTANT: Your response MUST start with the priority level in bold, e.g.: **P1 – Absolute Emergency**"""
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
@@ -69,6 +69,21 @@ def _detect_language(text: str) -> str:
 def _build_user_content(description: str, think: bool) -> str:
     tag = "/think" if think else "/no_think"
     return f"{tag}\n{description}"
+
+
+def _ensure_priority_first(text: str) -> str:
+    """Déplace le niveau de priorité (P1/P2/P3) en tête de réponse s'il n'y est pas déjà."""
+    if not text:
+        return text
+    first_line = text.split("\n")[0]
+    if re.match(r"^\*?\*?P[123]", first_line):
+        return text  # déjà en tête
+    match = re.search(r"(\*{0,2}P[123][^*\n]*\*{0,2})", text)
+    if match:
+        priority = match.group(1).strip("* ").strip()
+        body = text[:match.start()].strip() + "\n\n" + text[match.end():].strip()
+        return f"**{priority}**\n\n{body.strip()}"
+    return text
 
 
 def _extract_thinking(text: str) -> tuple[str, str | None]:
@@ -111,7 +126,6 @@ async def triage(body: TriageRequest, request: Request) -> TriageResponse:
         # Le modèle 1.7B place parfois toute la réponse dans reasoning sans content final
         reasoning = (message.get("reasoning") or "").strip()
         if reasoning and not content:
-            # Tout est dans reasoning : on l'utilise comme réponse, thinking=None
             response_text, thinking = _extract_thinking(reasoning)
             if not thinking:
                 response_text = reasoning
@@ -120,6 +134,7 @@ async def triage(body: TriageRequest, request: Request) -> TriageResponse:
             response_text = content.strip()
         else:
             response_text, thinking = _extract_thinking(content)
+        response_text = _ensure_priority_first(response_text)
         _total += 1
     except Exception as exc:
         _errors += 1
