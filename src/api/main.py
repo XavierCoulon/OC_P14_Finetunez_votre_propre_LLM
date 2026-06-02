@@ -106,14 +106,20 @@ async def triage(body: TriageRequest, request: Request) -> TriageResponse:
             resp.raise_for_status()
 
         message = resp.json()["choices"][0]["message"]
-        raw = message.get("content") or ""
-        # Avec --reasoning-parser qwen3, vLLM place le thinking dans reasoning_content
-        reasoning_content = message.get("reasoning_content")
-        if reasoning_content:
-            thinking = reasoning_content.strip() or None
-            response_text = raw.strip()
+        content = message.get("content") or ""
+        # vLLM 0.18.x avec --reasoning-parser qwen3 : thinking dans "reasoning"
+        # Le modèle 1.7B place parfois toute la réponse dans reasoning sans content final
+        reasoning = (message.get("reasoning") or "").strip()
+        if reasoning and not content:
+            # Tout est dans reasoning : on l'utilise comme réponse, thinking=None
+            response_text, thinking = _extract_thinking(reasoning)
+            if not thinking:
+                response_text = reasoning
+        elif reasoning:
+            thinking = reasoning or None
+            response_text = content.strip()
         else:
-            response_text, thinking = _extract_thinking(raw)
+            response_text, thinking = _extract_thinking(content)
         _total += 1
     except Exception as exc:
         _errors += 1
