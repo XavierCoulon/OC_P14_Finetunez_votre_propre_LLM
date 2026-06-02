@@ -17,7 +17,7 @@ MODEL_NAME = os.environ.get("MODEL_NAME", "XavierCoulon/qwen3-1.7b-chsa-sft-merg
 HF_TOKEN = os.environ.get("HF_TOKEN", "")  # requis pour HF Inference Endpoints
 MAX_NEW_TOKENS = 512
 
-SYSTEM_PROMPT = """Tu es un agent de triage médical pour le Centre Hospitalier Saint-Aurélien (CHSA).
+SYSTEM_PROMPT_FR = """Tu es un agent de triage médical pour le Centre Hospitalier Saint-Aurélien (CHSA).
 À partir de la description du patient, tu dois :
 1. Classer le cas selon le niveau de priorité :
    - **P1 – Urgence absolue** : pronostic vital engagé, prise en charge immédiate (< 5 min)
@@ -26,7 +26,18 @@ SYSTEM_PROMPT = """Tu es un agent de triage médical pour le Centre Hospitalier 
 2. Justifier brièvement la classification
 3. Indiquer les premiers gestes ou examens prioritaires
 
-Réponds toujours en commençant par le niveau de priorité en gras."""
+Réponds en français en commençant toujours par le niveau de priorité en gras."""
+
+SYSTEM_PROMPT_EN = """You are a medical triage agent for the Centre Hospitalier Saint-Aurélien (CHSA).
+Based on the patient description, you must:
+1. Classify the case by priority level:
+   - **P1 – Absolute Emergency**: vital prognosis at risk, immediate care (< 5 min)
+   - **P2 – Relative Emergency**: serious but stable, urgent care (< 20 min)
+   - **P3 – Deferred Emergency**: non-critical, can wait (< 2h)
+2. Briefly justify the classification
+3. Indicate the first actions or priority examinations
+
+Answer in English, always starting with the priority level in bold."""
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
@@ -57,9 +68,7 @@ def _detect_language(text: str) -> str:
 
 def _build_user_content(description: str, think: bool) -> str:
     tag = "/think" if think else "/no_think"
-    lang = _detect_language(description)
-    lang_instruction = "Answer in English." if lang == "en" else "Réponds en français."
-    return f"{tag}\n{lang_instruction}\n{description}"
+    return f"{tag}\n{description}"
 
 
 def _extract_thinking(text: str) -> tuple[str, str | None]:
@@ -84,13 +93,14 @@ async def triage(body: TriageRequest, request: Request) -> TriageResponse:
                 json={
                     "model": MODEL_NAME,
                     "messages": [
-                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "system", "content": SYSTEM_PROMPT_EN if _detect_language(body.patient_description) == "en" else SYSTEM_PROMPT_FR},
                         {"role": "user", "content": _build_user_content(body.patient_description, body.think)}
                     ],
                     "max_tokens": MAX_NEW_TOKENS,
                     "temperature": 0.6,
                     "top_p": 0.95,
                     "repetition_penalty": 1.2,
+                    "chat_template_kwargs": {"enable_thinking": body.think},
                 },
             )
             resp.raise_for_status()
