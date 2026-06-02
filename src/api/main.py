@@ -91,7 +91,6 @@ async def triage(body: TriageRequest, request: Request) -> TriageResponse:
                     "temperature": 0.6,
                     "top_p": 0.95,
                     "repetition_penalty": 1.2,
-                    "chat_template_kwargs": {"enable_thinking": body.think},
                 },
             )
             resp.raise_for_status()
