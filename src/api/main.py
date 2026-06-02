@@ -55,14 +55,11 @@ def _detect_language(text: str) -> str:
     return "en" if en_score > fr_score else "fr"
 
 
-def _build_prompt(description: str, think: bool) -> str:
+def _build_user_content(description: str, think: bool) -> str:
     tag = "/think" if think else "/no_think"
     lang = _detect_language(description)
     lang_instruction = "Answer in English." if lang == "en" else "Réponds en français."
-    return (
-        f"<|im_start|>user\n{tag}\n{lang_instruction}\n{description}<|im_end|>\n"
-        "<|im_start|>assistant\n"
-    )
+    return f"{tag}\n{lang_instruction}\n{description}"
 
 
 def _extract_thinking(text: str) -> tuple[str, str | None]:
@@ -80,7 +77,6 @@ async def triage(body: TriageRequest, request: Request) -> TriageResponse:
     status_code = 200
 
     try:
-        think_tag = "/think" if body.think else "/no_think"
         headers = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
         async with httpx.AsyncClient(timeout=60.0, headers=headers) as client:
             resp = await client.post(
@@ -89,12 +85,13 @@ async def triage(body: TriageRequest, request: Request) -> TriageResponse:
                     "model": MODEL_NAME,
                     "messages": [
                         {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": f"{think_tag}\n{body.patient_description}"}
+                        {"role": "user", "content": _build_user_content(body.patient_description, body.think)}
                     ],
                     "max_tokens": MAX_NEW_TOKENS,
                     "temperature": 0.6,
                     "top_p": 0.95,
                     "repetition_penalty": 1.2,
+                    "chat_template_kwargs": {"enable_thinking": body.think},
                 },
             )
             resp.raise_for_status()
