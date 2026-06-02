@@ -43,10 +43,24 @@ _total: int = 0
 _start_time = time.time()
 
 
+def _detect_language(text: str) -> str:
+    """Détection légère basée sur les mots fréquents FR/EN — sans dépendance externe."""
+    fr_markers = {"le", "la", "les", "de", "du", "des", "un", "une", "je", "j'ai",
+                  "et", "en", "au", "aux", "est", "avec", "depuis", "par", "sur"}
+    en_markers = {"the", "a", "an", "of", "with", "and", "in", "is", "for", "my",
+                  "have", "i", "pain", "since", "years", "old", "history"}
+    words = set(text.lower().split())
+    fr_score = len(words & fr_markers)
+    en_score = len(words & en_markers)
+    return "en" if en_score > fr_score else "fr"
+
+
 def _build_prompt(description: str, think: bool) -> str:
     tag = "/think" if think else "/no_think"
+    lang = _detect_language(description)
+    lang_instruction = "Answer in English." if lang == "en" else "Réponds en français."
     return (
-        f"<|im_start|>user\n{tag}\n{description}<|im_end|>\n"
+        f"<|im_start|>user\n{tag}\n{lang_instruction}\n{description}<|im_end|>\n"
         "<|im_start|>assistant\n"
     )
 
