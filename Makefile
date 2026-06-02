@@ -1,6 +1,6 @@
 .PHONY: collect normalize anonymize split validate publish push-hub pipeline \
         export-wandb \
-        api-up api-down api-logs api-test api-bench api-prod api-bench-prod lint test
+        api-up api-down api-logs api-test api-bench api-prod api-bench-prod api-up-mac lint test
 
 collect:
 	uv run python scripts/01_collect.py
@@ -35,6 +35,9 @@ api-up:
 
 api-down:
 	docker compose down
+
+api-up-mac:
+	docker compose -f docker-compose.yml -f docker-compose.mac.yml up --build -d
 
 api-logs:
 	docker compose logs -f api

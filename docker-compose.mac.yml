@@ -1,0 +1,25 @@
+# Override pour Apple Silicon (M1/M2/M3) — CPU inference
+# Usage : docker compose -f docker-compose.yml -f docker-compose.mac.yml up --build
+#
+# Différences vs docker-compose.yml :
+#   - Image CPU ARM64 (pas de GPU NVIDIA requis)
+#   - --device cpu
+#   - --dtype float32  (float16 instable sur CPU ARM)
+#   - Bloc deploy/nvidia supprimé
+#
+# Perf attendue : ~20-60s/requête selon le Mac (vs 4-5s sur HF Endpoint GPU T4)
+
+services:
+  vllm:
+    image: vllm/vllm-openai:latest
+    platform: linux/arm64
+    command:
+      - "--model"
+      - "${MODEL_NAME:-XavierCoulon/qwen3-1.7b-chsa-dpo-merged}"
+      - "--max-model-len"
+      - "2048"
+      - "--dtype"
+      - "float32"
+      - "--device"
+      - "cpu"
+    deploy: {}  # écrase le bloc nvidia du docker-compose.yml de base

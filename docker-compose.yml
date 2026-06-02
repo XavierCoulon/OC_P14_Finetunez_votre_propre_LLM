@@ -8,9 +8,6 @@ services:
       - "2048"
       - "--dtype"
       - "float16"
-      - "--enable-reasoning"
-      - "--reasoning-parser"
-      - "deepseek_r1"
     ports:
       - "8000:8000"
     volumes:
