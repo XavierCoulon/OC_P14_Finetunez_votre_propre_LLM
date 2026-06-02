@@ -351,10 +351,15 @@ make api-bench-prod
 
 ### Métriques de performance (GPU T4 — HF Inference Endpoints)
 
-| Métrique | `think=false` | `think=true` |
+| Métrique | Valeur | Seuil prod |
 |---|---|---|
-| Latence typique | ~4-5 s | ~6-8 s |
-| Taux d'erreur | 0 % | 0 % |
+| Latence P50 | 5 699 ms | < 3 s ⚠️ |
+| Latence P95 | 7 159 ms | < 5 s ⚠️ |
+| Latence min | 4 057 ms | — |
+| 5 requêtes concurrentes (wall) | 8 455 ms | — ✅ |
+| Taux d'erreur | 0 % | < 1 % ✅ |
+
+> Latence mesurée avec `think=false` sur T4 HF Endpoint (free tier). Le continuous batching vLLM est actif : 5 requêtes simultanées en 8.5s vs ~28s séquentiel. Production : GPU A10G requis pour P50 < 2s.
 
 ### CI/CD
 

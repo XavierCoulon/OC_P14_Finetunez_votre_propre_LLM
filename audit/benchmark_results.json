@@ -1,0 +1,31 @@
+{
+  "nominal": {
+    "n": 10,
+    "p50_ms": 5698.9,
+    "p95_ms": 7159.2,
+    "min_ms": 4057.2,
+    "max_ms": 7159.2
+  },
+  "concurrent": {
+    "n": 5,
+    "wall_ms": 8454.8,
+    "individual_ms": [
+      7276.1,
+      5856.7,
+      7220.6,
+      6839.9,
+      8452.1
+    ]
+  },
+  "edge_cases": {
+    "vide": {
+      "status": 422
+    },
+    "très_long": {
+      "latency_ms": 4664.4
+    },
+    "spéciaux": {
+      "latency_ms": 4447.6
+    }
+  }
+}
