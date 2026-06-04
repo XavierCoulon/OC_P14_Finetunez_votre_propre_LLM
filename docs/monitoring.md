@@ -3,11 +3,9 @@
 ## Surveillance quotidienne
 
 - Vérifier `GET /health` → status `ok`
-- Vérifier `GET /metrics` → `error_rate` < 0.01
 
 ```bash
 curl -s http://localhost:8080/health
-curl -s http://localhost:8080/metrics | python -m json.tool
 ```
 
 ## Surveillance hebdomadaire
@@ -19,8 +17,8 @@ curl -s http://localhost:8080/metrics | python -m json.tool
 
 | Condition | Action |
 |---|---|
-| `error_rate` > 5 % sur 1h | Redémarrer le service API, vérifier les logs vLLM |
-| `latency_p95_ms` > 10 000 | Vérifier la charge GPU, redémarrer vLLM si nécessaire |
+| Taux d'erreurs élevé sur `/health` ou logs vLLM | Redémarrer le service API, vérifier les logs vLLM |
+| Latence élevée constatée via benchmark | Vérifier la charge GPU, redémarrer vLLM si nécessaire |
 | Conteneur vLLM OOM | Réduire `--max-model-len` ou passer en quantization 4bit |
 
 ## Rotation des clés API

@@ -35,14 +35,6 @@ def test_health():
     assert "model" in resp.json()
 
 
-def test_metrics():
-    resp = client.get("/metrics")
-    assert resp.status_code == 200
-    data = resp.json()
-    for key in ["total_requests", "error_rate", "uptime_s"]:
-        assert key in data
-
-
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
 def test_triage_no_api_key():
