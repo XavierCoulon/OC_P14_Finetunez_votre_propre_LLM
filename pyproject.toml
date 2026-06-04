@@ -20,6 +20,11 @@ dependencies = [
     "uvicorn[standard]>=0.47.0",
     "httpx>=0.28.1",
     "wandb>=0.27.0",
+    "ragas==0.2.6",
+    "langchain-mistralai>=1.1.4",
+    "sentence-transformers>=5.5.1",
+    "langchain-google-vertexai>=3.2.3",
+    "langchain-huggingface>=1.2.2",
 ]
 
 [project.optional-dependencies]
