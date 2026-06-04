@@ -13,7 +13,7 @@ from .models import TriageRequest, TriageResponse
 VLLM_URL = os.environ.get("VLLM_URL", "http://localhost:8000")
 MODEL_NAME = os.environ.get("MODEL_NAME", "XavierCoulon/qwen3-1.7b-chsa-sft-merged")
 HF_TOKEN = os.environ.get("HF_TOKEN", "")  # requis pour HF Inference Endpoints
-MAX_NEW_TOKENS = 512
+MAX_NEW_TOKENS = 1024
 
 SYSTEM_PROMPT_FR = """Tu es un agent de triage médical pour le Centre Hospitalier Saint-Aurélien (CHSA).
 À partir de la description du patient, tu dois :
