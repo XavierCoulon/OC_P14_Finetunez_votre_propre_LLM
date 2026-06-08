@@ -350,6 +350,23 @@ L'analyse manuelle de 10 cas révèle un comportement bi-modal :
 
 Ce comportement est une conséquence directe du corpus d'entraînement : les sources (MedQuAD, ChatDoctor, UltraMedical) sont des Q&A médicaux complexes, sans cas simples bien représentés.
 
+### Limite structurelle : absence de ground truth triage
+
+**Aucune des 5 sources ne contient de label P1/P2/P3.** Le modèle a appris à produire du vocabulaire médical pertinent, mais la classification de priorité repose entièrement sur l'instruction dans le system prompt — pas sur des exemples annotés de triage. C'est la limite principale du corpus pour cet usage.
+
+Conséquence directe : la cohérence de classification n'est pas garantie. Un même tableau clinique peut recevoir P1 ou P2 selon la formulation de l'input, sans que le modèle ait appris de règle de décision stable.
+
+### Évaluation triage-spécifique absente
+
+RAGAS mesure la qualité générale de la réponse mais pas ce qui compte cliniquement. Deux métriques critiques sont manquantes dans ce POC :
+
+| Métrique | Définition | Risque clinique |
+|---|---|---|
+| **Taux de sous-triage** | P1 classé P2 ou P3 | Élevé — retard de prise en charge vitale |
+| **Taux de sur-triage** | P3 classé P1 ou P2 | Modéré — engorgement des urgences |
+
+Pour un déploiement réel, le taux de sous-triage doit être 0 % — c'est un critère bloquant non mesuré dans ce POC.
+
 ### Capacités multilingues
 
 Le modèle répond dans la langue de l'input grâce à la détection de langue côté API (system prompt bilingue). Cette capacité est fonctionnelle mais limitée aux inputs clairement FR ou EN.
@@ -374,9 +391,12 @@ Le gain ×3.4 sur 5 requêtes simultanées (8.5s vs 28.5s séquentiel) confirme 
 
 | Action | Impact |
 |---|---|
-| Enrichir le dataset SFT avec 500–1 000 cas P1/P2/P3 annotés par des médecins urgentistes | Améliorer la classification sur inputs courts et réduire le sur-triage |
+| Constituer un dataset triage annoté (500–1 000 cas P1/P2/P3 validés par urgentistes) | Correction de la limite structurelle principale — le modèle apprendra des règles de décision stables |
+| Construire des paires DPO ciblées triage (chosen = bonne priorité, rejected = mauvaise priorité) | DPO actuel est généraliste — des paires sur des erreurs de classification ont un impact direct |
+| Mesurer les taux de sous-triage et sur-triage sur eval_clinique | Métriques cliniquement pertinentes absentes du POC |
+| Implémenter un format de sortie structuré (JSON : `priority`, `reasoning`, `actions`) | Classification exploitable programmatiquement, réduction des hallucinations de remplissage |
 | Investiguer le thinking mode (`--reasoning-parser qwen3` sur vLLM ≥ 0.18.x) | Activer la chaîne de raisonnement visible |
-| Validation clinique formelle sur 500 cas réels | Prerequis déploiement |
+| Validation clinique formelle sur 500 cas réels | Prérequis déploiement |
 
 ### Moyen terme (3–12 mois)
 
@@ -385,7 +405,8 @@ Le gain ×3.4 sur 5 requêtes simultanées (8.5s vs 28.5s séquentiel) confirme 
 | GPU dédié A10G (24 GB) | P50 < 2s, capacité > 50 req/min |
 | Passage à un modèle 7B (Qwen3-7B) | FactualCorrectness > 0.50 estimé |
 | RAG sur guidelines médicales (SFMU, HAS) | Ancrage factuel validé, réduction des hallucinations |
-| Mécanisme de feedback médecin | Amélioration continue du dataset DPO |
+| Questionnaire adaptatif multi-tours | L'agent pose des questions de clarification sur les inputs courts → meilleure classification |
+| Mécanisme de feedback médecin | Amélioration continue des paires DPO depuis les corrections en production |
 
 ### Long terme (> 12 mois)
 
